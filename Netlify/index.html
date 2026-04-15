@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>OneNote Pro - 100% Lokal</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; height: 100vh; width: 100vw; background: #f4f5f7; font-family: 'Segoe UI', Tahoma, sans-serif; overflow: hidden; }
+    
+    /* Globale Cursor-Sperren während man etwas zieht oder skaliert */
+    body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
+    body.is-resizing-nwse, body.is-resizing-nwse * { cursor: nwse-resize !important; }
+    body.is-resizing-ns, body.is-resizing-ns * { cursor: ns-resize !important; }
+    body.is-resizing-nesw, body.is-resizing-nesw * { cursor: nesw-resize !important; }
+    body.is-resizing-ew, body.is-resizing-ew * { cursor: ew-resize !important; }
+
+    /* LOBBY / STARTBILDSCHIRM */
+    #lobby { position: fixed; top:0; left:0; width:100vw; height:100vh; background:#f4f5f7; z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+    .lobby-box { background:#fff; padding:40px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.1); width:450px; text-align:center; }
+    .lobby-box h2 { margin-top:0; color:#1a73e8; margin-bottom: 10px; font-size: 24px;}
+    .lobby-box p { color: #666; font-size: 14px; margin-bottom: 30px; line-height: 1.5; }
+    
+    .btn-db { display: block; width: 100%; padding: 15px; margin-bottom: 15px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; border: none; }
+    .btn-new-db { background: #1a73e8; color: white; box-shadow: 0 4px 6px rgba(26,115,232,0.2); }
+    .btn-new-db:hover { background: #1557b0; }
+    .btn-open-db { background: #f1f3f4; color: #333; border: 1px solid #ccc; }
+    .btn-open-db:hover { background: #e8eaed; }
+
+    /* APP LAYOUT */
+    #app { display: none; flex-direction: column; height: 100vh; width: 100vw; }
+    #topBar { flex: 0 0 100px; background: #ffffff; border-bottom: 1px solid #ddd; display: flex; flex-direction: column; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+    .ribbon-header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid #e0e0e0; padding: 0 15px; background: #f8f9fa; height: 40px;}
+    .ribbon-tabs { display: flex; gap: 5px; height: 100%; align-items: flex-end; }
+    .ribbon-tab { border: 1px solid transparent; background: transparent; padding: 8px 20px; cursor: pointer; font-size: 14px; color: #555; border-radius: 4px 4px 0 0; margin-bottom: -1px; transition: 0.1s;}
+    .ribbon-tab:hover { background: #e8eaed; }
+    .ribbon-tab.active { background: #fff; border-color: #e0e0e0; border-bottom-color: #fff; color: #1a73e8; font-weight: bold; }
+    
+    .ribbon-content { display: flex; align-items: center; gap: 8px; padding: 8px 15px; height: 60px; overflow-x: auto; scrollbar-width: none; }
+    .ribbon-content::-webkit-scrollbar { display: none; }
+    
+    #topRightArea { display: flex; align-items: center; gap: 8px; padding-bottom: 5px; }
+    
+    #saveStatus { font-size: 11px; color: #1a73e8; font-weight: bold; background: #e8f0fe; padding: 4px 8px; border-radius: 4px; text-align: center; flex-shrink: 0; display: inline-block; overflow: hidden;}
+    .btn-exit { background: #f1f3f4; color: #444; border: 1px solid #ccc; padding: 5px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer; margin-right: 5px;}
+    .btn-exit:hover { background: #e8eaed; }
+    
+    .zoom-indicator { font-size: 12px; color: #555; background: #fff; padding: 4px 8px; border-radius: 4px; cursor: pointer; border: 1px solid #ccc; font-weight: bold; transition: 0.1s;}
+    .zoom-indicator:hover { background: #e8eaed; }
+    
+    .tool-group { display: flex; align-items: center; gap: 2px; border-right: 1px solid #e0e0e0; padding-right: 12px; margin-right: 4px; height: 36px; }
+    .tool-btn { min-width: 32px; height: 32px; border: 1px solid transparent; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 15px; color: #444; }
+    .tool-btn:hover { background: #f1f3f4; border-color: #ccc; }
+    
+    select { height: 28px; border: 1px solid #ddd; border-radius: 3px; font-size: 13px; outline: none; background: #fff; padding: 0 5px; cursor: pointer;}
+    select:hover { border-color: #aaa; }
+    
+    .color-container { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 35px; }
+    .color-container input { width: 28px; height: 18px; border: 1px solid #ddd; cursor: pointer; padding: 0; }
+    .color-label { font-size: 9px; font-weight: bold; color: #666; margin-top: 2px; }
+
+    #sectionBar { flex: 0 0 35px; background: #e8eaed; display: flex; border-bottom: 1px solid #ccc; padding: 6px 10px 0 10px; overflow-x: auto; scrollbar-width: thin; gap: 2px;}
+    .sec-tab { background: #f1f3f4; border: 1px solid #ccc; border-bottom: none; border-radius: 6px 6px 0 0; padding: 4px 15px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: bold; color: #555; position: relative; border-top: 4px solid transparent; white-space: nowrap; transition: 0.1s;}
+    .sec-tab:hover { background: #fdfdfd; }
+    .sec-tab.active { background: #ffffff; border-top-color: #4285f4; margin-bottom: -1px; padding-bottom: 5px; z-index: 2; border-bottom: 1px solid #fff; color: #000; }
+    
+    .sec-color-input { width: 14px; height: 14px; border: none; padding: 0; background: none; cursor: pointer; border-radius: 50%; overflow: hidden; flex-shrink: 0; }
+    .sec-color-input::-webkit-color-swatch-wrapper { padding: 0; }
+    .sec-color-input::-webkit-color-swatch { border: 1px solid #ccc; border-radius: 50%; }
+    
+    .sec-edit, .sec-del { color: #999; font-size: 14px; cursor: pointer; display: none; margin-left: 2px; }
+    .sec-del { font-size: 16px; margin-left: 4px; }
+    .sec-tab:hover .sec-edit, .sec-tab:hover .sec-del { display: inline-block; }
+    .sec-edit:hover { color: #1a73e8; }
+    .sec-del:hover { color: #ff4d4d; }
+    
+    #addSectionBtn { cursor: pointer; padding: 4px 15px; font-size: 13px; font-weight: bold; color: #1a73e8; display: flex; align-items: center; border-radius: 6px 6px 0 0; margin-left: 5px; }
+    #addSectionBtn:hover { background: rgba(0,0,0,0.05); }
+
+    #main { flex: 1; display: flex; overflow: hidden; flex-direction: row; }
+    
+    #sidebar { flex-shrink: 0; background: #f9f9f9; border-right: 1px solid #ddd; display: flex; flex-direction: column; z-index: 90;}
+    #sidebarResizer { width: 5px; flex-shrink: 0; cursor: ew-resize; background: transparent; z-index: 95; transition: background 0.2s; }
+    #sidebarResizer:hover, #sidebarResizer.active { background: #1a73e8; }
+    
+    #view { flex: 1; overflow: auto; position: relative; background: #e0e2e5; }
+    
+    #pagesList { flex: 1; overflow-y: auto; padding: 10px; overflow-x: hidden; }
+    .page-item { display: flex; align-items: center; padding: 6px 10px; margin-bottom: 3px; border-radius: 3px; cursor: pointer; background: transparent; font-size: 13px; transition: 0.1s; position: relative; gap: 5px;}
+    .page-item.active { background: #eef4ff; font-weight: bold;}
+    .page-item:hover { background: #e0e0e0; }
+    .page-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 2px; }
+    
+    .sub-page { margin-left: 20px; font-size: 12px; }
+    
+    .page-toggle-btn { background: none; border: none; cursor: pointer; font-size: 9px; color: #666; width: 14px; padding: 0; display: flex; align-items: center; justify-content: center; }
+    .page-toggle-placeholder { width: 14px; display: inline-block; }
+    
+    .page-actions { position: absolute; right: 2px; display: none; align-items: center; background: #e0e0e0; padding: 2px 4px; border-radius: 3px; box-shadow: -6px 0 8px rgba(224,224,224,0.9); }
+    .page-item.active .page-actions { background: #eef4ff; box-shadow: -6px 0 8px rgba(238,244,255,0.9); }
+    .page-item:hover .page-actions { display: flex; }
+    
+    .page-order-btn, .page-level-btn, .page-copy-btn, .page-move-btn, .page-del-btn { background: none; border: none; color: #999; cursor: pointer; padding: 0 3px; transition: 0.1s; }
+    .page-order-btn { font-size: 10px; transform: scale(0.9); }
+    .page-level-btn { font-size: 14px; font-weight: bold; }
+    .page-copy-btn, .page-move-btn { font-size: 12px; }
+    .page-del-btn { font-size: 16px; }
+
+    .page-order-btn:hover, .page-level-btn:hover, .page-copy-btn:hover, .page-move-btn:hover { color: #1a73e8; transform: scale(1.1); }
+    .page-del-btn:hover { color: #ff4d4d; transform: scale(1.1); }
+
+    #addPageBtn { margin: 10px; padding: 8px; border: 1px dashed #bbb; border-radius: 5px; text-align: center; cursor: pointer; color: #1a73e8; font-weight: bold; font-size: 12px; }
+
+    #canvas { position: absolute; top: 0; left: 0; width: 10000px; height: 10000px; background-color: #ffffff; transform-origin: 0 0; }
+    #canvas.bg-dots { background-image: radial-gradient(#d7d7d7 1px, #ffffff 1px); background-size: 20px 20px; }
+    #canvas.bg-lines { background-image: repeating-linear-gradient(#ffffff, #ffffff 24px, #e0e0e0 24px, #e0e0e0 25px); background-size: 100% 25px; }
+    
+    #pageTitle { position: absolute; top: 40px; left: 50px; font-size: 32px; font-weight: bold; color: #202124; border: none; border-bottom: 2px solid #dadce0; background: transparent; outline: none; width: 600px; padding-bottom: 5px; z-index: 5; }
+
+    /* Standard-Notiz (Textfelder) */
+    .note { position: absolute; min-width: 100px; min-height: 40px; z-index: 10; background: transparent; border: 1px solid transparent; border-radius: 6px; display: flex; flex-direction: column; transition: box-shadow 0.1s, border-color 0.1s; }
+    .note:hover { border-color: rgba(0,0,0,0.1); background: rgba(255, 255, 255, 0.5); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .note.selected { border-color: #1a73e8 !important; box-shadow: 0 0 0 2px rgba(26,115,232,0.5), 0 4px 12px rgba(0,0,0,0.1) !important; background: #f8fbff; z-index: 50;}
+    
+    /* 8 Custom Resizer Handles */
+    .resize-handle { position: absolute; width: 8px; height: 8px; background: #fff; border: 1px solid #1a73e8; display: none; z-index: 100; border-radius: 2px; box-sizing: border-box; }
+    .note.selected .resize-handle { display: block; }
+    .nw-handle { top: -4px; left: -4px; cursor: nwse-resize; }
+    .n-handle  { top: -4px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+    .ne-handle { top: -4px; right: -4px; cursor: nesw-resize; }
+    .e-handle  { top: 50%; right: -4px; transform: translateY(-50%); cursor: ew-resize; }
+    .se-handle { bottom: -4px; right: -4px; cursor: nwse-resize; }
+    .s-handle  { bottom: -4px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+    .sw-handle { bottom: -4px; left: -4px; cursor: nesw-resize; }
+    .w-handle  { top: 50%; left: -4px; transform: translateY(-50%); cursor: ew-resize; }
+
+    .handle { flex: 0 0 15px; cursor: grab; background: transparent; width: 100%; }
+    .note:hover .handle { background: rgba(0,0,0,0.03); }
+    .note.selected .handle { background: rgba(26,115,232,0.1); }
+
+    /* Spezifische Behandlung für Bilder (is-image) und Formen (is-shape) getrennt */
+    .note.is-image, .note.is-shape { background: transparent !important; border: 1px solid transparent; border-radius: 0; overflow: visible !important; }
+    .note.is-image { min-width: 20px !important; min-height: 20px !important; }
+    .note.is-shape { min-width: 2px !important; min-height: 2px !important; }
+    
+    .note.is-image:hover, .note.is-shape:hover { border-color: rgba(0,0,0,0.2) !important; background: transparent !important; box-shadow: none !important; }
+    .note.is-image.selected, .note.is-shape.selected { border: 1px dashed #1a73e8 !important; background: transparent !important; box-shadow: none !important; }
+    
+    /* Display: block; und absolute Positionierung sorgt für 100% Passform ohne Abschneiden */
+    .note.is-image .content, .note.is-shape .content { position: absolute; top: 0; left: 0; right: 0; bottom: 0; padding: 0 !important; cursor: grab; display: block; overflow: visible !important; }
+    .note.is-image .note-del, .note.is-shape .note-del { top: 2px; right: 2px; z-index: 101; }
+    
+    .content { flex: 1; padding: 10px; outline: none; line-height: 1.5; color: #333; overflow-y: hidden; overflow-x: auto; background: transparent; word-break: break-word; }
+    
+    .content table { border-collapse: collapse; max-width: 100%; margin: 10px 0; }
+    .content td, .content th { min-width: 20px; padding: 2px; position: relative; }
+    
+    .note-task { cursor: pointer; margin-right: 8px; transform: scale(1.2); vertical-align: middle; }
+    .note-important { color: #fbbc04; font-weight: bold; user-select: none; margin-right: 5px; font-size: 1.1em; }
+    
+    .note-date { font-family: inherit; font-size: 0.95em; border: 1px solid #ccc; border-radius: 4px; padding: 2px 4px; background: #fcfcfc; cursor: pointer; vertical-align: middle; outline: none; color: #333; margin-right: 5px; transition: 0.2s; min-width: 160px;}
+    .note-date:hover { border-color: #999; }
+    .note-date.expired { color: #d93025; font-weight: bold; border-color: #f28b82; background: #fce8e6; }
+    
+    .note-del { position: absolute; top: -5px; right: -5px; background: #ff4d4d; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; display: none; font-size: 11px; z-index: 60; }
+    .note:hover .note-del { display: block; }
+    .content img:not(.standalone-img) { max-width: 100%; border-radius: 4px; display: block; margin: 10px 0; }
+
+    .selection-box { position: absolute; border: 1px solid rgba(26,115,232,0.8); background: rgba(26,115,232,0.15); z-index: 9999; pointer-events: none; display: none; }
+
+    .modal-overlay { display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center; }
+    .modal-box { background:#fff; padding:25px; border-radius:8px; width:400px; box-shadow:0 4px 12px rgba(0,0,0,0.2); }
+    .modal-box h3 { margin-top:0; color:#333; font-size:18px; margin-bottom:20px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+    .settings-section-title { font-size: 11px; color: #1a73e8; text-transform: uppercase; margin: 15px 0 10px 0; }
+    .setting-row { margin-bottom:12px; display: flex; justify-content: space-between; align-items: center;}
+    .setting-row label { font-size:13px; color:#555; font-weight:bold; }
+    .setting-row select, .setting-row input { width:140px; height:30px; font-size:13px; border:1px solid #ccc; border-radius:4px; padding:0 5px; }
+    .modal-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:25px; }
+    .btn-cancel { padding:8px 15px; background:#f1f3f4; border:none; border-radius:4px; cursor:pointer; font-weight:bold; color:#444; }
+    .btn-save { padding:8px 15px; background:#1a73e8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:bold; }
+    .btn-cancel:hover { background:#e8eaed; }
+    .btn-save:hover { background:#1557b0; }
+    
+    .manual-box { width: 650px; max-width: 95%; max-height: 85vh; display: flex; flex-direction: column; }
+    #manualSearch { width: 100%; padding: 10px 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; outline: none; transition: border-color 0.2s;}
+    #manualSearch:focus { border-color: #1a73e8; }
+    
+    .manual-content { flex: 1; overflow-y: auto; padding-right: 15px; }
+    .faq-item { margin-bottom: 10px; border: 1px solid #eee; border-radius: 6px; background: #fafafa; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+    .faq-item details { padding: 12px; }
+    .faq-item summary { font-size: 14px; font-weight: bold; cursor: pointer; color: #1a73e8; outline: none; list-style: none; position: relative; padding-right: 20px;}
+    .faq-item summary::-webkit-details-marker { display: none; }
+    .faq-item summary::after { content: '▼'; position: absolute; right: 0; top: 2px; font-size: 10px; color: #888; }
+    .faq-item details[open] summary::after { content: '▲'; }
+    
+    .faq-content { margin-top: 12px; font-size: 13px; line-height: 1.6; color: #444; border-top: 1px solid #eee; padding-top: 12px; }
+    .faq-content ul { margin: 0; padding-left: 22px; }
+    .faq-content li { margin-bottom: 8px; }
+    .faq-content code { background: #f1f3f4; padding: 2px 5px; border-radius: 3px; font-family: monospace; font-size: 12px; border: 1px solid #ddd; }
+
+    #loadingOverlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(255, 255, 255, 0.9); z-index: 9999999; display: none; flex-direction: column; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; color: #1a73e8; cursor: wait; }
+  </style>
+</head>
+<body>
+
+  <div id="lobby">
+    <div class="lobby-box">
+      <h2>🛡️ Lokale Datenbank</h2>
+      <p>Deine Daten verlassen diesen Computer niemals. Wähle eine Datei auf deiner Festplatte als Speicherort für deine Notizen aus.</p>
+      
+      <button class="btn-db btn-new-db" onclick="createNewDatabase()">+ Neue Datenbank erstellen</button>
+      <button class="btn-db btn-open-db" onclick="openExistingDatabase()">📂 Vorhandene Datenbank öffnen</button>
+      
+      <p style="font-size:11px; color:#999; margin-top:15px;">Tipp: Du kannst die erstellte .json Datei auf einen USB-Stick ziehen oder dir selbst per E-Mail ins Büro schicken!</p>
+    </div>
+  </div>
+
+  <div id="loadingOverlay">⏳ Verarbeite Datei...</div>
+
+  <div id="app">
+    <div id="topBar">
+      <div class="ribbon-header">
+        <div class="ribbon-tabs">
+          <button class="ribbon-tab active" onclick="switchRibbon('start')">Start</button>
+          <button class="ribbon-tab" onclick="switchRibbon('insert')">Einfügen</button>
+        </div>
+        <div id="topRightArea">
+          <button class="btn-exit" onclick="exitToLobby()" title="Zurück zur Auswahl">⬅ Schließen</button>
+          <div class="tool-group" style="border-right: 1px solid #ccc; padding-right: 10px; margin-right: 5px;">
+            <button class="tool-btn" onclick="undo()" title="Rückgängig (Strg+Z)" style="font-size: 16px;">↩</button>
+            <button class="tool-btn" onclick="redo()" title="Wiederholen (Strg+Y)" style="font-size: 16px;">↪</button>
+          </div>
+          <button class="zoom-indicator" onclick="resetZoom()" title="Auf 100% zurücksetzen"><span id="zoomLabel">100%</span></button>
+          <div id="saveStatus">🟢 Bereit</div>
+          <button class="tool-btn" onclick="openManual()" title="Benutzerhandbuch" style="font-size: 16px; width:28px; height:28px;">📖</button>
+          <button class="tool-btn" onclick="openSettings()" title="Einstellungen" style="font-size: 16px; width:28px; height:28px;">⚙️</button>
+        </div>
+      </div>
+
+      <div id="ribbon-start" class="ribbon-content">
+        <div class="tool-group">
+          <select onchange="format('formatBlock', this.value)" title="Textformat" style="width: 110px;">
+            <option value="P" selected>Normaler Text</option>
+            <option value="H1">Überschrift 1</option>
+            <option value="H2">Überschrift 2</option>
+            <option value="H3">Überschrift 3</option>
+            <option value="BLOCKQUOTE">Zitat</option>
+          </select>
+          <select id="fontFamilySelect" onchange="format('fontName', this.value)" style="width: 120px;" title="Schriftart">
+            <option value="Tahoma">Tahoma</option><option value="Arial">Arial</option>
+            <option value="Segoe UI">Segoe UI</option><option value="Courier New">Courier New</option>
+            <option value="Times New Roman">Times New Roman</option><option value="Georgia">Georgia</option>
+          </select>
+          <select id="fontSizeSelect" onchange="setCustomFontSize(this.value)" title="Schriftgröße" style="width: 60px;">
+            <option value="8">8</option><option value="9">9</option><option value="10">10</option>
+            <option value="11">11</option><option value="12">12</option><option value="14">14</option>
+            <option value="15">15</option><option value="16">16</option><option value="18">18</option>
+            <option value="20">20</option><option value="24">24</option><option value="28">28</option>
+            <option value="36">36</option><option value="48">48</option><option value="72">72</option>
+          </select>
+          <button class="tool-btn" onclick="changeFontSize(1)" title="Schrift vergrößern" style="font-weight: bold; margin-left: 2px;">A⁺</button>
+          <button class="tool-btn" onclick="changeFontSize(-1)" title="Schrift verkleinern" style="font-weight: bold;">A⁻</button>
+        </div>
+
+        <div class="tool-group">
+          <button class="tool-btn" onclick="format('bold')" title="Fett (Strg+B)"><b>F</b></button>
+          <button class="tool-btn" onclick="format('italic')" title="Kursiv (Strg+I)"><i>K</i></button>
+          <button class="tool-btn" onclick="format('underline')" title="Unterstrichen (Strg+U)"><u>U</u></button>
+          <button class="tool-btn" onclick="format('strikeThrough')" title="Durchgestrichen"><strike>abc</strike></button>
+        </div>
+
+        <div class="tool-group">
+          <button class="tool-btn" onclick="format('backColor', document.getElementById('markerColor').value)" title="Marker anwenden">🖍️</button>
+          <div class="color-container">
+            <input type="color" id="markerColor" value="#ffff00" oninput="format('backColor', this.value)" title="Markerfarbe wählen">
+            <span class="color-label">Farbe</span>
+          </div>
+          <button class="tool-btn" onclick="format('backColor', 'transparent')" title="Marker entfernen" style="margin-right: 5px;">🚫</button>
+          <button class="tool-btn" onclick="format('foreColor', document.getElementById('textColor').value)" title="Textfarbe anwenden" style="font-weight: bold; color: #333;">A</button>
+          <div class="color-container">
+            <input type="color" id="textColor" value="#000000" oninput="format('foreColor', this.value)" title="Textfarbe wählen">
+            <span class="color-label">Text</span>
+          </div>
+        </div>
+
+        <div class="tool-group">
+          <button class="tool-btn" onclick="format('insertUnorderedList')" title="Aufzählung">•≡</button>
+          <button class="tool-btn" onclick="format('insertOrderedList')" title="Nummerierung">1≡</button>
+          <button class="tool-btn" onclick="format('outdent')" title="Einzug verkleinern">←▤</button>
+          <button class="tool-btn" onclick="format('indent')" title="Einzug vergrößern">▤→</button>
+          <select onchange="setLineSpacing(this.value)" title="Zeilenabstand" style="width: 65px; margin-left: 5px;">
+            <option value="1.0">↕ 1.0</option><option value="1.15">↕ 1.15</option>
+            <option value="1.5" selected>↕ 1.5</option><option value="2.0">↕ 2.0</option>
+          </select>
+        </div>
+
+        <div class="tool-group">
+          <button class="tool-btn" onclick="format('justifyLeft')" title="Linksbündig">≡</button>
+          <button class="tool-btn" onclick="format('justifyCenter')" title="Zentriert">≣</button>
+          <button class="tool-btn" onclick="format('justifyRight')" title="Rechtsbündig">≡</button>
+        </div>
+
+        <div class="tool-group">
+          <button class="tool-btn" onclick="insertTask()" title="Aufgabe (Checkbox)" style="font-size: 16px;">☑</button>
+          <button class="tool-btn" onclick="insertDate()" title="Frist (Datum & Uhrzeit)" style="font-size: 14px;">📅</button>
+          <button class="tool-btn" onclick="insertImportant()" title="Wichtig markieren" style="font-size: 16px;">⭐</button>
+        </div>
+
+        <div class="tool-group" style="border:none;">
+          <button id="formatPainterBtn" class="tool-btn" onclick="toggleFormatPainter()" title="Format übertragen">🖌️</button>
+          <button class="tool-btn" onclick="format('removeFormat')" title="Formatierung löschen">✖</button>
+        </div>
+      </div>
+
+      <div id="ribbon-insert" class="ribbon-content" style="display:none;">
+        <div class="tool-group">
+          <button class="tool-btn" onclick="insertTable()" title="Neue Tabelle einfügen" style="font-weight: bold; width:40px;">⊞</button>
+          <button class="tool-btn" onmousedown="event.preventDefault()" onclick="modifyTable('addRow')" title="Zeile hinzufügen (unten)" style="font-size:11px; font-weight:bold; color:#1a73e8;">+Z</button>
+          <button class="tool-btn" onmousedown="event.preventDefault()" onclick="modifyTable('delRow')" title="Zeile löschen" style="font-size:11px; font-weight:bold; color:#d93025;">-Z</button>
+          <button class="tool-btn" onmousedown="event.preventDefault()" onclick="modifyTable('addCol')" title="Spalte hinzufügen (rechts)" style="font-size:11px; font-weight:bold; color:#1a73e8; margin-left:3px;">+S</button>
+          <button class="tool-btn" onmousedown="event.preventDefault()" onclick="modifyTable('delCol')" title="Spalte löschen" style="font-size:11px; font-weight:bold; color:#d93025;">-S</button>
+        </div>
+        
+        <div class="tool-group">
+          <span style="font-size: 11px; color: #888; margin-right: 5px; font-weight:bold;">Formen:</span>
+          <button class="tool-btn" onclick="insertShape('line')" title="Linie" style="font-weight: bold; font-size:18px;">╲</button>
+          <button class="tool-btn" onclick="insertShape('arrow')" title="Pfeil" style="font-weight: bold; font-size:18px;">↗</button>
+          <button class="tool-btn" onclick="insertShape('rect')" title="Rechteck" style="font-weight: bold; font-size:18px;">□</button>
+          <button class="tool-btn" onclick="insertShape('circle')" title="Kreis/Ellipse" style="font-weight: bold; font-size:18px;">◯</button>
+        </div>
+        
+        <div class="tool-group">
+          <button class="tool-btn" onclick="applyShapeColor()" title="Rand-/Formfarbe anwenden">🖍️</button>
+          <div class="color-container" style="margin-right:5px;">
+            <input type="color" id="shapeColor" value="#cccccc" oninput="applyShapeColor()" title="Farbe wählen">
+            <span class="color-label">Farbe</span>
+          </div>
+          
+          <select id="shapeThickness" onchange="applyShapeThickness(this.value)" title="Liniendicke (für Formen & Tabellen)" style="width: 55px; margin-right: 5px;">
+            <option value="1">1px</option><option value="2">2px</option><option value="4" selected>4px</option>
+            <option value="6">6px</option><option value="10">10px</option>
+          </select>
+          
+          <span style="font-size: 11px; color: #888; margin-left: 5px; margin-right: 5px;">Drehen:</span>
+          <input type="range" id="shapeRotate" min="0" max="360" value="0" style="width: 70px;" oninput="applyShapeRotation(this.value)" title="Pfeil ausrichten (360°)">
+        </div>
+        <div class="tool-group" style="border:none;">
+          <button class="tool-btn" onclick="format('insertHorizontalRule')" title="Trennlinie im Text einfügen" style="font-weight: bold; margin-left: 8px;">―</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="sectionBar">
+      <div id="sectionsList" style="display:flex;"></div>
+      <div id="addSectionBtn" onclick="addSection()">+</div>
+    </div>
+
+    <div id="main">
+      <div id="sidebar">
+        <div style="padding: 15px 15px 5px 15px; font-weight: bold; color: #666; font-size: 11px; text-transform: uppercase;">Seiten</div>
+        <div id="pagesList"></div>
+        <div id="addPageBtn" onclick="addPage()">+ Seite hinzufügen</div>
+      </div>
+      
+      <div id="sidebarResizer" title="Seitenleiste anpassen"></div>
+      <div id="view"><div id="canvas"><input type="text" id="pageTitle" placeholder="Unbenannte Seite"></div></div>
+    </div>
+  </div>
+
+  <div id="settingsModal" class="modal-overlay">
+    <div class="modal-box">
+      <h3>⚙️ Einstellungen</h3>
+      <div class="settings-section-title">Text & Schrift</div>
+      <div class="setting-row">
+        <label>Standard Schriftart</label>
+        <select id="settingDefaultFont">
+          <option value="Tahoma">Tahoma</option><option value="Arial">Arial</option>
+          <option value="Segoe UI">Segoe UI</option><option value="Courier New">Courier New</option>
+          <option value="Times New Roman">Times New Roman</option><option value="Georgia">Georgia</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <label>Standard Schriftgröße</label>
+        <select id="settingDefaultFontSize">
+          <option value="11">11px</option><option value="12">12px</option><option value="14">14px</option>
+          <option value="15">15px</option><option value="16">16px</option><option value="18">18px</option>
+          <option value="20">20px</option><option value="24">24px</option>
+        </select>
+      </div>
+      <div class="settings-section-title">Formen & Tabellen</div>
+      <div class="setting-row"><label>Standard Rahmenfarbe</label><input type="color" id="settingDefaultShapeColor" value="#cccccc" style="padding: 0; cursor: pointer;"></div>
+      <div class="setting-row">
+        <label>Standard Liniendicke</label>
+        <select id="settingDefaultShapeThick">
+          <option value="1">1px</option><option value="2">2px</option><option value="4">4px</option><option value="6">6px</option><option value="10">10px</option>
+        </select>
+      </div>
+      <div class="settings-section-title">Ansicht</div>
+      <div class="setting-row">
+        <label>Leinwand Hintergrund</label>
+        <select id="settingCanvasBg">
+          <option value="none">Leer (Weiß)</option><option value="dots">Gepunktet (Raster)</option><option value="lines">Liniert (Block)</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeSettings()">Abbrechen</button>
+        <button class="btn-save" onclick="saveSettingsBtn()">Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="manualModal" class="modal-overlay">
+    <div class="modal-box manual-box">
+      <h3 style="margin-bottom: 10px;">📖 Benutzerhandbuch & Hilfe</h3>
+      <input type="text" id="manualSearch" placeholder="🔍 Suche nach Funktionen (z.B. Format, Bild, Größe, Pfeile...)" onkeyup="filterManual()">
+      
+      <div class="manual-content" id="faqList">
+        <div class="faq-item">
+          <details open>
+            <summary>💾 WICHTIG: Lokale Datenspeicherung</summary>
+            <div class="faq-content" style="background: #e8f0fe; padding: 10px; border-radius: 4px; border: 1px solid #c2e0ff;">
+              Diese App ist <b>100% offline und privat</b>. Wenn du die App öffnest, wählst du eine `.json` Datei auf deinem Computer aus.
+              Jede Änderung wird <b>automatisch und sofort</b> in diese lokale Datei gespeichert! Du musst nichts extra anklicken.<br><br>
+              Du kannst diese Datei auf einen USB-Stick kopieren oder per E-Mail versenden, um auf einem anderen PC weiterzuarbeiten.
+            </div>
+          </details>
+        </div>
+
+        <div class="faq-item">
+          <details>
+            <summary>📚 Grundlagen, Tags & Format übertragen (Pinsel)</summary>
+            <div class="faq-content">
+              <ul>
+                <li><b>Notiz erstellen:</b> Klicke einfach auf eine freie Stelle der weißen Leinwand und fange an zu tippen.</li>
+                <li><b>Größe ändern (Wie in OneNote):</b> Klicke ein Objekt (Text, Bild, Pfeil) an. Es erscheinen <b>8 weiße Ziehpunkte</b> am Rand. Ziehe an diesen Punkten, um die Form in jede beliebige Richtung zu vergrößern, zu strecken oder die Länge eines Pfeils anzupassen!</li>
+                <li><b>Notiz verschieben:</b> Greife die Notiz mit der Maus an dem schmalen, leeren Bereich ganz oben (unsichtbarer Griff) und ziehe sie umher.</li>
+                <li><b>Tags & Fristen nutzen:</b> Im Reiter "Start" findest du Buttons für interaktive Checkboxen (☑), wichtige Absätze (⭐) und <b>Fristen (📅 Datum & Uhrzeit)</b>. Wenn du ein Datum eingibst und diese Zeit abläuft, färbt sich das Feld automatisch rot!</li>
+                <li><b>Format übertragen (Pinsel 🖌️):</b> Markiere ein Wort, das die gewünschte Farbe oder Größe hat. Klicke im Reiter "Start" auf den <b>🖌️ Pinsel</b>. Markiere nun ein anderes Wort – und die Formatierung wird sofort punktgenau übernommen!</li>
+                <li><b>Löschen:</b> Fahre mit der Maus über eine Notiz und klicke auf das rote <b>X</b>, das oben rechts erscheint.</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+
+        <div class="faq-item">
+          <details>
+            <summary>🖼️ Bilder einfügen (Drag & Drop / Kopieren)</summary>
+            <div class="faq-content">
+              <ul>
+                <li><b>Bilder per Drag & Drop:</b> Du kannst Bilddateien von deinem Desktop einfach mit der Maus greifen und direkt auf die Leinwand ziehen! Das Bild wird <b>100% offline</b> als Text-Code in deine lokale Datenbank gewandelt.</li>
+                <li><b>Bilder kopieren:</b> Du kannst Bilder auch aus dem Internet oder anderen Programmen per Rechtsklick kopieren und per <code>Strg+V</code> auf der Leinwand einfügen.</li>
+                <li><b>Bilder verziehen:</b> Du kannst Bilder mit den 8 weißen Ziehpunkten beliebig in der Größe verändern und auch asymmetrisch strecken oder stauchen.</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+
+        <div class="faq-item">
+          <details>
+            <summary>🗂️ Abschnitte & Seiten verwalten</summary>
+            <div class="faq-content">
+              <ul>
+                <li><b>Umbenennen:</b> Mache einen Doppelklick auf den Namen eines Abschnitts oder nutze das Stift-Symbol ✎. Den Seitennamen änderst du einfach im großen Titel-Feld direkt auf der Leinwand.</li>
+                <li><b>Hierarchien (Unterseiten):</b> Klicke auf den Pfeil <b>↳</b> bei einer Seite, um sie zu einer eingerückten Unterseite zu machen. So behältst du die Übersicht!</li>
+                <li><b>Sortieren:</b> Ziehe Seiten und Abschnitte einfach per Drag & Drop mit der Maus an die gewünschte Stelle. Alternativ kannst du bei Seiten die ▲/▼ Pfeile nutzen.</li>
+                <li><b>Hintergrund (Raster/Linien):</b> Du kannst im Einstellungs-Menü (⚙️) für jede Seite einzeln einstellen, ob der Hintergrund leer, liniert oder ein Punktraster sein soll.</li>
+                <li><b>Seitenleiste anpassen:</b> Du kannst die Seitenleiste jederzeit breiter oder schmaler ziehen. Halte dazu die linke Maustaste auf der Linie zwischen der Seitenleiste und der weißen Leinwand gedrückt und ziehe sie. Die Breite wird dauerhaft gespeichert.</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+
+        <div class="faq-item">
+          <details>
+            <summary>✨ Profi-Werkzeug: Mehrere Notizen auswählen (Lasso)</summary>
+            <div class="faq-content">
+              <ul>
+                <li><b>Mehrere Notizen verschieben:</b> Klicke auf eine völlig leere Stelle der Leinwand und ziehe mit gedrückter Maus ein blaues Rechteck (Lasso) auf. Alle berührten Notizen und Formen werden blau markiert. Wenn du nun eine der markierten Notizen an ihrem Griff verschiebst, wandern alle synchron mit!</li>
+                <li><b>Schnelles Löschen:</b> Wenn du mehrere Notizen per Lasso markiert hast, kannst du einfach die <code>Entf</code> (Delete) oder <code>Rücktaste</code> (Backspace) auf deiner Tastatur drücken, um alle markierten Boxen auf einmal zu löschen.</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+
+        <div class="faq-item">
+          <details>
+            <summary>📊 Tabellen einfügen & bearbeiten</summary>
+            <div class="faq-content">
+              <ul>
+                <li><b>Kopieren aus Word/Excel:</b> Markiere eine Tabelle in Excel, drücke <code>Strg+C</code>. Klicke dann in unser Tool auf die leere Leinwand und drücke <code>Strg+V</code>. Das Layout und die Farben werden exakt übernommen!</li>
+                <li><b>Eigene Tabellen erstellen:</b> Wechsle oben in den Reiter <b>Einfügen</b> und klicke auf das Tabellen-Symbol <b>⊞</b>.</li>
+                <li><b>Spaltenbreite anpassen:</b> Fahre mit der Maus genau über die vertikale Linie zwischen zwei Tabellenspalten. Der Cursor ändert sich in <code>&lt;||&gt;</code> und du kannst die Spalte breiter oder schmaler ziehen.</li>
+                <li><b>Zeilen & Spalten ergänzen:</b> Klicke in eine beliebige Zelle deiner Tabelle und nutze die blauen/roten Buttons <b>+Z / -Z / +S / -S</b> im Reiter "Einfügen", um Zeilen (Z) oder Spalten (S) hinzuzufügen oder zu löschen.</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+
+        <div class="faq-item">
+          <details>
+            <summary>🎨 Formen (Pfeile, Kreise) & Farben ändern</summary>
+            <div class="faq-content">
+              <ul>
+                <li><b>Formen zeichnen:</b> Im Reiter "Einfügen" findest du Buttons für Linien, Pfeile, Rechtecke und Kreise. Klicke darauf, um sie auf der Leinwand an der Mausposition erscheinen zu lassen. Sie sind unabhängige Objekte, die du einfach anklicken und an den 8 Ecken/Kanten größer ziehen oder verschieben kannst!</li>
+                <li><b>Formen / Tabellen anpassen:</b> Klicke auf eine Form (oder klicke in eine Tabelle) und ändere im Reiter "Einfügen" nachträglich die <b>Rahmenfarbe</b> (🖍️) oder die <b>Liniendicke</b> aus dem Dropdown-Menü.</li>
+                <li><b>Pfeile drehen:</b> Klicke auf einen Pfeil oder eine Linie und nutze den Schieberegler <b>"Drehen"</b> in der Menüleiste, um das Objekt stufenlos in jede beliebige Richtung (360°) zeigen zu lassen.</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+
+        <div class="faq-item">
+          <details>
+            <summary>🔍 Zoom & Rückgängig (Undo/Redo)</summary>
+            <div class="faq-content">
+              <ul>
+                <li><b>Zoomen:</b> Halte die <code>STRG</code> (oder CMD bei Mac) Taste auf deiner Tastatur gedrückt und drehe am <b>Mausrad</b>, um stufenlos in die Leinwand rein- und rauszuzoomen.</li>
+                <li><b>Zoom zurücksetzen:</b> Klicke oben rechts neben den Einstellungen auf die Prozentanzeige (z.B. <code>120%</code>), um die Ansicht sofort wieder auf exakt 100% zu setzen.</li>
+                <li><b>Rückgängig (Undo/Redo):</b> Nutze <code>Strg+Z</code> um Eingaben rückgängig zu machen. Wenn du keine Notiz fokussiert hast, macht dies sogar verschobene Notizen rückgängig! Alternativ kannst du auch die ↩ / ↪ Buttons oben rechts in der Menüleiste verwenden.</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+
+      </div>
+      <div class="modal-actions">
+        <button class="btn-save" onclick="closeManual()">Schließen</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ==========================================
+  // FILE SYSTEM API (LOKALE DATENBANK)
+  // ==========================================
+  let fileHandle = null;
+  let saveTimeout = null;
+
+  let sections = [], currentSectionId = null, currentPageId = null;
+  let localPageCache = {}; // Format: { pageId: [ {id, x, y, w, h, content} ] }
+  let appSettings = { defaultFont: 'Segoe UI', defaultFontSize: '14', defaultShapeColor: '#cccccc', defaultShapeThick: '4', canvasBg: 'none', sidebarWidth: 260 };
+  
+  let isDragging = false, draggedItems = [], isSelecting = false, selStartX = 0, selStartY = 0;
+  let selectionBox = null, selectedNotes = []; 
+  let isResizingCol = false, resizingCell = null, startMouseXForCol = 0, startColWidth = 0, hoveredCell = null;
+  let isResizingSidebar = false, startMouseXForSidebar = 0, startSidebarWidth = 260;
+  let isResizingNote = false, resizingDir = '', startNoteX = 0, startNoteY = 0, startNoteW = 0, startNoteH = 0, currentResizingNote = null;
+  let formatPainterActive = false, copiedStyles = null;
+  let historyStack = [], historyIndex = -1, isRestoring = false, lastFocusedContent = null; 
+  let highestZ = 10, currentZoom = 1, draggedPageIndex = null, draggedPageCount = 1, draggedSectionIndex = null, lastMouseX = 300, lastMouseY = 300;
+
+  // Überprüft, ob der Browser die moderne File API unterstützt
+  if (!window.showOpenFilePicker) {
+      alert("⚠️ Dein Browser unterstützt die lokale Dateispeicherung nicht. Bitte nutze Chrome, Edge oder Opera auf dem PC!");
+  }
+
+  // 1. Neue Datenbank erstellen
+  async function createNewDatabase() {
+      try {
+          fileHandle = await window.showSaveFilePicker({
+              suggestedName: 'MeineNotizen.json',
+              types: [{ description: 'Notizbuch Datenbank', accept: { 'application/json': ['.json'] } }]
+          });
+          
+          // Grundstruktur bauen
+          sections = [{ id: genId('sec'), name: 'Allgemein', color: '#4285f4', pages: [{id: genId('p'), name: 'Willkommen'}] }];
+          localPageCache = {};
+          
+          await forceSaveToFile(); 
+          startApp();
+      } catch (e) {
+          console.log("Erstellung abgebrochen", e);
+      }
+  }
+
+  // 2. Vorhandene Datenbank öffnen
+  async function openExistingDatabase() {
+      try {
+          const [handle] = await window.showOpenFilePicker({
+              types: [{ description: 'Notizbuch Datenbank', accept: { 'application/json': ['.json'] } }]
+          });
+          fileHandle = handle;
+          
+          document.getElementById('loadingOverlay').style.display = 'flex';
+          const file = await fileHandle.getFile();
+          const text = await file.text();
+          
+          const parsed = JSON.parse(text);
+          sections = parsed.sections || [];
+          localPageCache = parsed.localPageCache || {};
+          appSettings = parsed.appSettings || appSettings;
+
+          if(sections.length === 0) {
+              sections = [{ id: genId('sec'), name: 'Allgemein', color: '#4285f4', pages: [{id: genId('p'), name: 'Willkommen'}] }];
+          }
+          
+          startApp();
+      } catch (e) {
+          console.log("Öffnen abgebrochen oder fehlerhaft", e);
+          document.getElementById('loadingOverlay').style.display = 'none';
+      }
+  }
+
+  // 3. Physisches Speichern in die Datei
+  async function forceSaveToFile() {
+      if(!fileHandle) return;
+      try {
+          setStatus("Speichere...");
+          // Packe den aktuellen Stand der Leinwand in den Cache
+          if (currentPageId && !isRestoring) {
+              localPageCache[currentPageId] = Array.from(document.querySelectorAll('.note')).map(n => ({
+                  id: n.id, x: parseInt(n.style.left), y: parseInt(n.style.top), 
+                  w: n.style.width, h: n.style.height, content: n.querySelector('.content').innerHTML
+              }));
+          }
+          
+          const snapshot = { sections, localPageCache, appSettings, lastSec: currentSectionId, lastPage: currentPageId };
+          
+          const writable = await fileHandle.createWritable();
+          await writable.write(JSON.stringify(snapshot));
+          await writable.close();
+          
+          setStatus("🟢 Gespeichert");
+      } catch(e) {
+          setStatus("⚠️ Fehler!");
+          console.error("Fehler beim Speichern:", e);
+      }
+  }
+
+  // Warteschlange für Speichervorgänge
+  function queueSave() {
+      setStatus("Änderungen...");
+      clearTimeout(saveTimeout);
+      saveTimeout = setTimeout(() => { forceSaveToFile(); }, 1000); 
+  }
+
+  function exitToLobby() {
+      forceSaveToFile().then(() => {
+          fileHandle = null;
+          document.getElementById('app').style.display = 'none';
+          document.getElementById('lobby').style.display = 'flex';
+          document.querySelectorAll('.note').forEach(n => n.remove());
+      });
+  }
+
+  // ==========================================
+  // APP LOGIK & UI
+  // ==========================================
+
+  function startApp() {
+      document.getElementById('lobby').style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+      document.getElementById('loadingOverlay').style.display = 'none';
+      
+      applySettingsToUI();
+      renderSections();
+      if(sections.length > 0) selectSection(sections[0].id);
+  }
+
+  function setStatus(txt) { document.getElementById('saveStatus').innerText = txt; }
+  function genId(prefix) { return prefix + '_' + Date.now() + '_' + Math.floor(Math.random() * 10000); }
+  
+  function generatePageHTML(p, hasChildren) {
+    let toggleHtml = !p.isSub && hasChildren ? `<button class="page-toggle-btn" title="Auf-/Zuklappen">${p.isCollapsed ? '▶' : '▼'}</button>` : `<span class="page-toggle-placeholder"></span>`;
+    let levelBtn = p.isSub ? `<button class="page-level-btn" title="Zu Hauptseite machen">↰</button>` : `<button class="page-level-btn" title="Zu Unterseite machen">↳</button>`;
+    return `${toggleHtml}<span class="page-name" title="${p.name || "Unbenannte Seite"}">${p.name || "Unbenannte Seite"}</span>
+      <div class="page-actions">${levelBtn}<button class="page-order-btn page-up-btn" title="Nach oben verschieben">▲</button><button class="page-order-btn page-down-btn" title="Nach unten verschieben">▼</button><button class="page-move-btn" title="In anderen Abschnitt verschieben">➡️</button><button class="page-copy-btn" title="Seite kopieren/duplizieren">📄</button><button class="page-del-btn" title="Seite löschen">×</button></div>`;
+  }
+  
+  function switchRibbon(tabId) {
+    document.querySelectorAll('.ribbon-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.ribbon-content').forEach(c => c.style.display = 'none');
+    document.querySelector(`[onclick="switchRibbon('${tabId}')"]`).classList.add('active');
+    document.getElementById('ribbon-' + tabId).style.display = 'flex';
+  }
+
+  function format(cmd, val = null) {
+    if (lastFocusedContent) { lastFocusedContent.focus(); }
+    document.execCommand(cmd, false, val);
+    recordState();
+  }
+
+  function toggleFormatPainter() {
+      const btn = document.getElementById('formatPainterBtn');
+      if (!formatPainterActive) {
+          let sel = window.getSelection();
+          if (sel.rangeCount > 0 && !sel.isCollapsed) {
+              let node = sel.anchorNode; if (node.nodeType === 3) node = node.parentNode;
+              let style = window.getComputedStyle(node);
+              copiedStyles = { fontFamily: style.fontFamily, fontSize: style.fontSize, color: style.color, backgroundColor: style.backgroundColor, fontWeight: style.fontWeight, fontStyle: style.fontStyle, textDecoration: style.textDecorationLine || style.textDecoration };
+              formatPainterActive = true; btn.style.backgroundColor = '#d2e3fc';
+          } else { alert("Bitte markiere zuerst ein Wort, dessen Format du kopieren möchtest!"); }
+      } else { formatPainterActive = false; btn.style.backgroundColor = 'transparent'; }
+  }
+
+  function applyCopiedFormat() {
+      if (!copiedStyles) return;
+      let sel = window.getSelection(); if(sel.rangeCount === 0 || sel.isCollapsed) return; 
+      document.execCommand('fontName', false, copiedStyles.fontFamily); document.execCommand('foreColor', false, copiedStyles.color);
+      let isBold = (copiedStyles.fontWeight === 'bold' || parseInt(copiedStyles.fontWeight) >= 700); if (document.queryCommandState('bold') !== isBold) document.execCommand('bold');
+      let isItalic = (copiedStyles.fontStyle === 'italic'); if (document.queryCommandState('italic') !== isItalic) document.execCommand('italic');
+      let isUnderline = copiedStyles.textDecoration.includes('underline'); if (document.queryCommandState('underline') !== isUnderline) document.execCommand('underline');
+      let isStrike = copiedStyles.textDecoration.includes('line-through'); if (document.queryCommandState('strikeThrough') !== isStrike) document.execCommand('strikeThrough');
+      if (copiedStyles.backgroundColor && copiedStyles.backgroundColor !== 'rgba(0, 0, 0, 0)' && copiedStyles.backgroundColor !== 'transparent') { document.execCommand('backColor', false, copiedStyles.backgroundColor); } else { document.execCommand('backColor', false, 'transparent'); }
+      if(copiedStyles.fontSize) { setCustomFontSize(parseInt(copiedStyles.fontSize)); }
+      formatPainterActive = false; document.getElementById('formatPainterBtn').style.backgroundColor = 'transparent';
+  }
+
+  function undo() { if (document.activeElement && document.activeElement.classList.contains('content')) { document.execCommand('undo'); const noteDiv = document.activeElement.closest('.note'); if (noteDiv) queueNoteSave(noteDiv.id, noteDiv); } else { if (historyIndex > 0) { historyIndex--; applyState(historyStack[historyIndex]); } } }
+  function redo() { if (document.activeElement && document.activeElement.classList.contains('content')) { document.execCommand('redo'); const noteDiv = document.activeElement.closest('.note'); if (noteDiv) queueNoteSave(noteDiv.id, noteDiv); } else { if (historyIndex < historyStack.length - 1) { historyIndex++; applyState(historyStack[historyIndex]); } } }
+
+  function checkDates() {
+      let now = new Date();
+      document.querySelectorAll('.note-date').forEach(el => {
+          if (el.value) { let inputDate = new Date(el.value); if (inputDate < now) { el.classList.add('expired'); } else { el.classList.remove('expired'); } }
+      });
+  }
+
+  document.addEventListener('change', function(e) {
+    if (e.target && e.target.tagName === 'INPUT') {
+      if (e.target.type === 'checkbox') {
+          e.target.defaultChecked = e.target.checked; if (e.target.checked) e.target.setAttribute('checked', 'checked'); else e.target.removeAttribute('checked');
+          let note = e.target.closest('.note'); if (note) { queueNoteSave(note.id, note); recordState(); }
+      } 
+      else if (e.target.type === 'datetime-local' || e.target.type === 'date' || e.target.classList.contains('note-date')) {
+          e.target.setAttribute('value', e.target.value); checkDates(); let note = e.target.closest('.note'); if (note) { queueNoteSave(note.id, note); recordState(); }
+      }
+    }
+  });
+
+  document.addEventListener('keydown', e => {
+    if (document.activeElement && document.activeElement.classList.contains('content')) return;
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedNotes.length > 0) {
+            e.preventDefault();
+            selectedNotes.forEach(note => {
+                if(localPageCache[currentPageId]) { localPageCache[currentPageId] = localPageCache[currentPageId].filter(n => n.id !== note.id); }
+                note.remove();
+            });
+            queueSave(); recordState(); selectedNotes = []; return;
+        }
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
+    else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
+  });
+
+  function resetZoom() { currentZoom = 1; document.getElementById('canvas').style.transform = `scale(1)`; document.getElementById('zoomLabel').innerText = '100%'; }
+
+  document.getElementById('view').addEventListener('wheel', function(e) {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const view = document.getElementById('view'); const canvas = document.getElementById('canvas');
+      const mouseX = e.clientX - view.getBoundingClientRect().left; const mouseY = e.clientY - view.getBoundingClientRect().top;
+      const canvasX = (mouseX + view.scrollLeft) / currentZoom; const canvasY = (mouseY + view.scrollTop) / currentZoom;
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      let newZoom = currentZoom + delta; newZoom = Math.max(0.2, Math.min(newZoom, 3)); 
+      if (newZoom !== currentZoom) {
+        currentZoom = newZoom; canvas.style.transform = `scale(${currentZoom})`; document.getElementById('zoomLabel').innerText = Math.round(currentZoom * 100) + '%';
+        view.scrollLeft = (canvasX * currentZoom) - mouseX; view.scrollTop = (canvasY * currentZoom) - mouseY;
+      }
+    }
+  }, { passive: false });
+
+  function clearSelection() { selectedNotes.forEach(n => n.classList.remove('selected')); selectedNotes = []; }
+
+  function filterManual() {
+      const input = document.getElementById('manualSearch').value.toLowerCase(); const items = document.querySelectorAll('.faq-item');
+      items.forEach(item => { const text = item.innerText.toLowerCase(); if (text.includes(input)) { item.style.display = 'block'; if(input.length > 0) { item.querySelector('details').open = true; } else { if(!item.innerText.includes("💾 WICHTIG")) { item.querySelector('details').open = false; } } } else { item.style.display = 'none'; } });
+  }
+
+  function openManual() { document.getElementById('manualSearch').value = ''; filterManual(); document.getElementById('manualModal').style.display = 'flex'; }
+  function closeManual() { document.getElementById('manualModal').style.display = 'none'; }
+
+  function openSettings() {
+    document.getElementById('settingDefaultFont').value = appSettings.defaultFont; document.getElementById('settingDefaultFontSize').value = appSettings.defaultFontSize;
+    document.getElementById('settingDefaultShapeColor').value = appSettings.defaultShapeColor; document.getElementById('settingDefaultShapeThick').value = appSettings.defaultShapeThick;
+    let currentBg = 'none';
+    if (currentSectionId && currentPageId) { const sec = sections.find(s => s.id === currentSectionId); const page = sec ? sec.pages.find(p => p.id === currentPageId) : null; if (page && page.bg) currentBg = page.bg; }
+    document.getElementById('settingCanvasBg').value = currentBg; document.getElementById('settingsModal').style.display = 'flex';
+  }
+
+  function closeSettings() { document.getElementById('settingsModal').style.display = 'none'; }
+
+  function saveSettingsBtn() {
+    appSettings.defaultFont = document.getElementById('settingDefaultFont').value; appSettings.defaultFontSize = document.getElementById('settingDefaultFontSize').value;
+    appSettings.defaultShapeColor = document.getElementById('settingDefaultShapeColor').value; appSettings.defaultShapeThick = document.getElementById('settingDefaultShapeThick').value;
+    const newBg = document.getElementById('settingCanvasBg').value;
+    if (currentSectionId && currentPageId) { const sec = sections.find(s => s.id === currentSectionId); const page = sec ? sec.pages.find(p => p.id === currentPageId) : null; if (page) { page.bg = newBg; queueSave(); } }
+    applySettingsToUI(); closeSettings(); queueSave();
+  }
+
+  function updateCanvasBackground() {
+      const canvas = document.getElementById('canvas'); canvas.classList.remove('bg-dots', 'bg-lines'); let currentBg = 'none';
+      if (currentSectionId && currentPageId) { const sec = sections.find(s => s.id === currentSectionId); if (sec) { const page = sec.pages.find(p => p.id === currentPageId); if (page && page.bg) currentBg = page.bg; } }
+      if (currentBg === 'dots') canvas.classList.add('bg-dots'); if (currentBg === 'lines') canvas.classList.add('bg-lines');
+  }
+
+  function applySettingsToUI() {
+    document.getElementById('fontFamilySelect').value = appSettings.defaultFont; document.getElementById('fontSizeSelect').value = appSettings.defaultFontSize;
+    document.getElementById('shapeColor').value = appSettings.defaultShapeColor; document.getElementById('shapeThickness').value = appSettings.defaultShapeThick;
+    let sbWidth = appSettings.sidebarWidth || 260; let sb = document.getElementById('sidebar'); sb.style.flexBasis = sbWidth + 'px'; sb.style.minWidth = sbWidth + 'px'; sb.style.maxWidth = sbWidth + 'px';
+    updateCanvasBackground();
+  }
+
+  document.getElementById('sidebarResizer').onmousedown = function(e) { isResizingSidebar = true; startMouseXForSidebar = e.clientX; startSidebarWidth = document.getElementById('sidebar').offsetWidth; document.body.style.userSelect = 'none'; this.classList.add('active'); };
+
+  function insertDate() { if (!lastFocusedContent) { alert("Bitte klicke zuerst in eine Notiz."); return; } lastFocusedContent.focus(); let now = new Date(); now.setMinutes(now.getMinutes() - now.getTimezoneOffset()); let localDatetime = now.toISOString().slice(0, 16); document.execCommand('insertHTML', false, `<input type="datetime-local" class="note-date" value="${localDatetime}" contenteditable="false">&nbsp;`); recordState(); checkDates(); }
+  function insertImportant() { if (!lastFocusedContent) return; lastFocusedContent.focus(); document.execCommand('insertHTML', false, '<span class="note-important" contenteditable="false">⭐</span>&nbsp;'); recordState(); }
+  function insertTask() { if (!lastFocusedContent) return; lastFocusedContent.focus(); document.execCommand('insertHTML', false, '<input type="checkbox" class="note-task" contenteditable="false">&nbsp;'); recordState(); }
+  function setCustomFontSize(sizePx) { if (!lastFocusedContent) return; lastFocusedContent.focus(); document.execCommand("fontSize", false, "7"); let fonts = lastFocusedContent.querySelectorAll('font[size="7"]'); fonts.forEach(f => { f.removeAttribute("size"); f.style.fontSize = sizePx + "px"; }); let selectDropdown = document.getElementById('fontSizeSelect'); if(selectDropdown.querySelector(`option[value="${sizePx}"]`)) { selectDropdown.value = sizePx; } recordState(); }
+  function changeFontSize(delta) { if (!lastFocusedContent) return; lastFocusedContent.focus(); let sel = window.getSelection(); if(!sel.rangeCount) return; let node = sel.anchorNode; if(node.nodeType === 3) node = node.parentNode; let currentSizeStr = window.getComputedStyle(node).fontSize; let currentSize = Math.round(parseFloat(currentSizeStr)) || parseInt(appSettings.defaultFontSize); let newSize = Math.max(8, currentSize + delta); setCustomFontSize(newSize); }
+  function setLineSpacing(val) { if (!lastFocusedContent) return; lastFocusedContent.focus(); let sel = window.getSelection(); if (sel.rangeCount > 0) { let node = sel.anchorNode; if (node.nodeType === 3) node = node.parentNode; let block = node.closest('div, p, li, td, h1, h2, h3, blockquote') || lastFocusedContent; if (block && block !== document) { block.style.lineHeight = val; let noteDiv = block.closest('.note'); if(noteDiv) queueNoteSave(noteDiv.id, noteDiv); recordState(); } } }
+
+  function insertTable() {
+    if (!lastFocusedContent) { alert("Bitte klicke zuerst in eine Text-Notiz."); return; }
+    let rows = prompt("Anzahl der Zeilen:", "3"); if (!rows) return; let cols = prompt("Anzahl der Spalten:", "3"); if (!cols) return;
+    let color = document.getElementById('shapeColor').value; let thick = document.getElementById('shapeThickness').value;
+    if (rows > 0 && cols > 0) {
+      let html = `<table style="border-collapse: collapse; margin: 10px 0; background: #fff; font-family: inherit; color: #000000; border: ${thick}px solid ${color};"><tbody>`;
+      for (let r = 0; r < rows; r++) { html += '<tr>'; for (let c = 0; c < cols; c++) { html += `<td style="border: 1px solid ${color}; padding: 6px; min-width: 50px; vertical-align: top; color: #000000;"><br></td>`; } html += '</tr>'; }
+      html += '</tbody></table><br>'; lastFocusedContent.focus(); document.execCommand('insertHTML', false, html); recordState();
+    }
+  }
+
+  function modifyTable(action) {
+    if (!lastFocusedContent) return; let sel = window.getSelection(); if (!sel.rangeCount) return; let node = sel.anchorNode; if (node.nodeType === 3) node = node.parentNode; let td = node.closest('td, th'); if (!td) { alert("Bitte klicke zuerst in eine Tabellenzelle."); return; }
+    let tr = td.closest('tr'); let table = tr.closest('table'); let colIndex = Array.from(tr.children).indexOf(td);
+    if (action === 'addRow') { let newTr = tr.cloneNode(true); Array.from(newTr.children).forEach(cell => cell.innerHTML = '<br>'); tr.parentNode.insertBefore(newTr, tr.nextSibling); } 
+    else if (action === 'delRow') { if (table.rows.length <= 1) table.remove(); else tr.remove(); } 
+    else if (action === 'addCol') { Array.from(table.rows).forEach(row => { if (row.children[colIndex]) { let newCell = row.children[colIndex].cloneNode(true); newCell.innerHTML = '<br>'; row.insertBefore(newCell, row.children[colIndex].nextSibling); } }); } 
+    else if (action === 'delCol') { if (tr.children.length <= 1) { table.remove(); } else { Array.from(table.rows).forEach(row => { if (row.children[colIndex]) row.children[colIndex].remove(); }); } }
+    let noteDiv = table.closest('.note'); if (noteDiv) queueNoteSave(noteDiv.id, noteDiv); recordState();
+  }
+
+  function insertShape(type) {
+    if (!currentPageId) return;
+    let color = document.getElementById('shapeColor').value; let thick = document.getElementById('shapeThickness').value; let html = ''; let w = 150, h = 100;
+    if (type === 'rect') { html = `<div class="shape-element" style="width:100%; height:100%; border:${thick}px solid ${color}; background:transparent;"></div>`; } 
+    else if (type === 'circle') { html = `<div class="shape-element" style="width:100%; height:100%; border:${thick}px solid ${color}; border-radius:50%; background:transparent;"></div>`; } 
+    else if (type === 'line') { html = `<div class="shape-element" style="width:100%; height:100%; display:block; position:relative;"><svg width="100%" height="100%" preserveAspectRatio="none" style="overflow:visible; display:block; position:absolute; top:0; left:0;"><line x1="0" y1="0" x2="100%" y2="100%" stroke="${color}" stroke-width="${thick}"/></svg></div>`; h = 50; } 
+    else if (type === 'arrow') { let id = Date.now() + Math.floor(Math.random() * 1000); html = `<div class="shape-element" style="width:100%; height:100%; display:block; position:relative;"><svg width="100%" height="100%" preserveAspectRatio="none" style="overflow:visible; display:block; position:absolute; top:0; left:0;"><defs><marker id="arrowHead_${id}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="${color}" /></marker></defs><line x1="0" y1="0" x2="100%" y2="100%" stroke="${color}" stroke-width="${thick}" marker-end="url(#arrowHead_${id})"/></svg></div>`; h = 50; }
+    let px = Math.max(0, lastMouseX - (w/2)); let py = Math.max(0, lastMouseY - (h/2));
+    let note = createNote(genId('n'), px, py, html, w, h); queueNoteSave(note.id, note); recordState();
+  }
+
+  function applyShapeColor() {
+      let color = document.getElementById('shapeColor').value;
+      if (lastFocusedContent) { let sel = window.getSelection(); if (sel.rangeCount > 0) { let node = sel.anchorNode; if (node.nodeType === 3) node = node.parentNode; let table = node ? node.closest('table') : null; if (table) { table.style.borderColor = color; Array.from(table.querySelectorAll('td, th')).forEach(cell => { cell.style.borderColor = color; }); let noteDiv = table.closest('.note'); if (noteDiv) queueNoteSave(noteDiv.id, noteDiv); recordState(); } } }
+      if(selectedNotes.length === 0 && lastFocusedContent) { let note = lastFocusedContent.closest('.note'); if(note && !selectedNotes.includes(note)) selectedNotes.push(note); }
+      selectedNotes.forEach(note => { let shape = note.querySelector('.shape-element'); if(shape) { let svg = shape.tagName.toLowerCase() === 'svg' ? shape : shape.querySelector('svg'); if (svg) { let line = svg.querySelector('line'); if(line) line.setAttribute('stroke', color); let path = svg.querySelector('path'); if(path) path.setAttribute('fill', color); } else { shape.style.borderColor = color; } queueNoteSave(note.id, note); } }); recordState();
+  }
+
+  function applyShapeThickness(thick) {
+      if (lastFocusedContent) { let sel = window.getSelection(); if (sel.rangeCount > 0) { let node = sel.anchorNode; if (node.nodeType === 3) node = node.parentNode; let table = node ? node.closest('table') : null; if (table) { table.style.borderWidth = thick + 'px'; Array.from(table.querySelectorAll('td, th')).forEach(cell => { cell.style.borderWidth = thick + 'px'; }); let noteDiv = table.closest('.note'); if (noteDiv) queueNoteSave(noteDiv.id, noteDiv); recordState(); } } }
+      if(selectedNotes.length === 0 && lastFocusedContent) { let note = lastFocusedContent.closest('.note'); if(note && !selectedNotes.includes(note)) selectedNotes.push(note); }
+      selectedNotes.forEach(note => { let shape = note.querySelector('.shape-element'); if(shape) { let svg = shape.tagName.toLowerCase() === 'svg' ? shape : shape.querySelector('svg'); if (svg) { let line = svg.querySelector('line'); if(line) line.setAttribute('stroke-width', thick); } else { shape.style.borderWidth = thick + 'px'; } queueNoteSave(note.id, note); } }); recordState();
+  }
+
+  function applyShapeRotation(deg) {
+      if(selectedNotes.length === 0 && lastFocusedContent) { let note = lastFocusedContent.closest('.note'); if(note && !selectedNotes.includes(note)) selectedNotes.push(note); }
+      selectedNotes.forEach(note => { let shape = note.querySelector('.shape-element'); if(shape) { shape.style.transform = `rotate(${deg}deg)`; queueNoteSave(note.id, note); } }); recordState();
+  }
+
+  function movePageOrder(pageId, direction) {
+    const sec = sections.find(s => s.id === currentSectionId); if (!sec || !sec.pages) return; const idx = sec.pages.findIndex(p => p.id === pageId); if (idx < 0) return;
+    let isMain = !sec.pages[idx].isSub; let blockLen = 1; if (isMain) { while (idx + blockLen < sec.pages.length && sec.pages[idx + blockLen].isSub) { blockLen++; } }
+    if (direction === 'up') { if (idx === 0) return; let targetIdx = idx - 1; if (isMain) { while (targetIdx > 0 && sec.pages[targetIdx].isSub) { targetIdx--; } } const block = sec.pages.splice(idx, blockLen); sec.pages.splice(targetIdx, 0, ...block); } 
+    else if (direction === 'down') { if (idx + blockLen >= sec.pages.length) return; let targetIdx = idx + blockLen; if (isMain) { let nextBlockLen = 1; while (targetIdx + nextBlockLen < sec.pages.length && sec.pages[targetIdx + nextBlockLen].isSub) { nextBlockLen++; } targetIdx += nextBlockLen; } else { targetIdx++; } const block = sec.pages.splice(idx, blockLen); targetIdx -= blockLen; sec.pages.splice(targetIdx, 0, ...block); }
+    queueSave(); renderPages();
+  }
+
+  function renderSections() {
+    const list = document.getElementById('sectionsList'); list.innerHTML = '';
+    sections.forEach((sec, index) => {
+      const div = document.createElement('div'); div.className = `sec-tab ${sec.id === currentSectionId ? 'active' : ''}`; div.style.borderTopColor = sec.color || '#4285f4'; div.draggable = true; 
+      div.innerHTML = `<input type="color" class="sec-color-input" value="${sec.color || '#4285f4'}" title="Farbe ändern"><span class="sec-name" title="Doppelklick zum Umbenennen">${sec.name || 'Unbenannt'}</span><span class="sec-edit" title="Abschnitt umbenennen">✎</span><span class="sec-del" title="Abschnitt löschen">×</span>`;
+      div.ondragstart = (e) => { draggedSectionIndex = index; e.dataTransfer.effectAllowed = "move"; setTimeout(() => div.style.opacity = '0.5', 0); };
+      div.ondragend = () => { div.style.opacity = '1'; document.querySelectorAll('.sec-tab').forEach(el => el.style.boxShadow = 'none'); };
+      div.ondragover = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; const bounding = div.getBoundingClientRect(); const offset = e.clientX - bounding.left; document.querySelectorAll('.sec-tab').forEach(el => el.style.boxShadow = 'none'); if (offset > bounding.width / 2) div.style.boxShadow = "inset -3px 0 0 0 #1a73e8"; else div.style.boxShadow = "inset 3px 0 0 0 #1a73e8"; };
+      div.ondragleave = () => { div.style.boxShadow = 'none'; };
+      div.ondrop = (e) => { e.preventDefault(); div.style.boxShadow = 'none'; if (draggedSectionIndex === null || draggedSectionIndex === index) return; const bounding = div.getBoundingClientRect(); let dropIndex = index; if ((e.clientX - bounding.left) > bounding.width / 2) dropIndex++; if (draggedSectionIndex < dropIndex) dropIndex--; const draggedItem = sections.splice(draggedSectionIndex, 1)[0]; sections.splice(dropIndex, 0, draggedItem); queueSave(); renderSections(); };
+      div.onclick = () => { selectSection(sec.id); }
+      const nameSpan = div.querySelector('.sec-name'); const editBtn = div.querySelector('.sec-edit');
+      const renameHandler = (e) => { e.stopPropagation(); const newName = prompt('Abschnitt umbenennen:', sec.name); if (newName !== null && newName.trim() !== '') { sec.name = newName.trim(); queueSave(); renderSections(); } };
+      nameSpan.ondblclick = renameHandler; editBtn.onclick = renameHandler;
+      const colorInp = div.querySelector('.sec-color-input'); colorInp.onclick = (e) => e.stopPropagation(); colorInp.oninput = (e) => { sec.color = e.target.value; div.style.borderTopColor = sec.color; queueSave(); };
+      const delBtn = div.querySelector('.sec-del'); delBtn.onclick = (e) => { e.stopPropagation(); deleteSection(sec.id, sec.name); };
+      list.appendChild(div);
+    });
+  }
+
+  function renderPages(sec) {
+    const list = document.getElementById('pagesList'); list.innerHTML = '';
+    if (!sec || !sec.pages) return;
+    let currentParentIndex = -1;
+    sec.pages.forEach((p, index) => {
+      const hasChildren = sec.pages[index+1] && sec.pages[index+1].isSub && !p.isSub;
+      if (!p.isSub) currentParentIndex = index;
+      if (p.isSub && currentParentIndex !== -1 && sec.pages[currentParentIndex].isCollapsed) return; 
+      const div = document.createElement('div'); div.className = `page-item ${p.id === currentPageId ? 'active' : ''} ${p.isSub ? 'sub-page' : 'main-page'}`; div.draggable = true;
+      div.innerHTML = generatePageHTML(p, hasChildren);
+      div.ondragstart = (e) => { draggedPageIndex = index; draggedPageCount = 1; if (!sec.pages[index].isSub) { let i = index + 1; while (i < sec.pages.length && sec.pages[i].isSub) { draggedPageCount++; i++; } } e.dataTransfer.effectAllowed = "move"; setTimeout(() => div.style.opacity = '0.5', 0); };
+      div.ondragend = () => { div.style.opacity = '1'; document.querySelectorAll('.page-item').forEach(el => el.style.borderTop = 'none'); };
+      div.ondragover = (e) => { e.preventDefault(); document.querySelectorAll('.page-item').forEach(el => el.style.borderTop = 'none'); div.style.borderTop = "2px solid #1a73e8"; };
+      div.ondragleave = () => { div.style.borderTop = 'none'; };
+      div.ondrop = (e) => { e.preventDefault(); div.style.borderTop = 'none'; if (draggedPageIndex === null || draggedPageIndex === index) return; let dropIndex = index; if (!sec.pages[index].isSub) { let i = index + 1; while (i < sec.pages.length && sec.pages[i].isSub) { dropIndex = i; i++; } } dropIndex++; if (dropIndex >= draggedPageIndex && dropIndex < draggedPageIndex + draggedPageCount) return; if (draggedPageIndex < dropIndex) dropIndex -= draggedPageCount; const draggedItems = sec.pages.splice(draggedPageIndex, draggedPageCount); sec.pages.splice(dropIndex, 0, ...draggedItems); queueSave(); renderPages(sec); };
+      div.onclick = () => selectPage(p.id);
+      const toggleBtn = div.querySelector('.page-toggle-btn'); if (toggleBtn) { toggleBtn.onclick = (e) => { e.stopPropagation(); sec.pages[index].isCollapsed = !sec.pages[index].isCollapsed; queueSave(); renderPages(sec); } }
+      const lBtn = div.querySelector('.page-level-btn'); lBtn.onclick = (e) => { e.stopPropagation(); sec.pages[index].isSub = !sec.pages[index].isSub; queueSave(); renderPages(sec); }
+      const upBtn = div.querySelector('.page-up-btn'); upBtn.onclick = (e) => { e.stopPropagation(); movePageOrder(p.id, 'up'); };
+      const downBtn = div.querySelector('.page-down-btn'); downBtn.onclick = (e) => { e.stopPropagation(); movePageOrder(p.id, 'down'); };
+      const copyBtn = div.querySelector('.page-copy-btn'); copyBtn.onclick = (e) => { e.stopPropagation(); copyPageModal(p.id, p.name, !!p.isSub); };
+      const moveBtn = div.querySelector('.page-move-btn'); moveBtn.onclick = (e) => { e.stopPropagation(); movePageModal(p.id, p.name); };
+      const delBtn = div.querySelector('.page-del-btn'); delBtn.onclick = (e) => { e.stopPropagation(); deletePage(p.id, p.name); };
+      list.appendChild(div);
+    });
+  }
+
+  function movePageModal(sourceId, sourceName) {
+    const currentSecIndex = sections.findIndex(s => s.id === currentSectionId); const currentSec = sections[currentSecIndex];
+    let secStr = sections.map((s, i) => `${i + 1}: ${s.name}`).join('\n'); let choice = prompt(`In welchen Abschnitt soll "${sourceName}" VERSCHOBEN werden?\n\n${secStr}\n\nNummer eingeben:`, currentSecIndex + 1);
+    if (!choice) return; let targetIndex = parseInt(choice) - 1;
+    if (targetIndex >= 0 && targetIndex < sections.length) {
+        if (targetIndex === currentSecIndex) { alert('Die Seite ist bereits in diesem Abschnitt. Nutze Drag & Drop oder die Pfeile.'); return; }
+        setStatus('Verschiebe Seite...'); let targetSec = sections[targetIndex]; const sourceIndex = currentSec.pages.findIndex(p => p.id === sourceId); let moveCount = 1;
+        if (!currentSec.pages[sourceIndex].isSub) { let i = sourceIndex + 1; while (i < currentSec.pages.length && currentSec.pages[i].isSub) { moveCount++; i++; } }
+        const movedItems = currentSec.pages.splice(sourceIndex, moveCount); movedItems[0].isSub = false; targetSec.pages.push(...movedItems);
+        renderPages(currentSec);
+        queueSave();
+        setStatus('Bereit');
+        if (confirm(`Seite wurde nach "${targetSec.name}" verschoben. Möchtest du dorthin wechseln?`)) { selectSection(targetSec.id); setTimeout(() => selectPage(movedItems[0].id), 200); } else { if (movedItems.some(p => p.id === currentPageId)) { if (currentSec.pages.length > 0) selectPage(currentSec.pages[0].id); else { currentPageId = null; document.querySelectorAll('.note').forEach(n => n.remove()); document.getElementById('pageTitle').value = ''; renderPages(currentSec); } } }
+    } else { alert('Ungültige Nummer.'); }
+  }
+
+  function selectSection(secId) {
+    currentSectionId = secId; renderSections(); const sec = sections.find(s => s.id === secId); 
+    if (sec && sec.pages && sec.pages.length > 0) { let targetPage = sec.lastPageId && sec.pages.some(p => p.id === sec.lastPageId) ? sec.lastPageId : sec.pages[0].id; selectPage(targetPage); } 
+    else { currentPageId = null; renderPages(sec); document.querySelectorAll('.note').forEach(n => n.remove()); document.getElementById('pageTitle').value = ''; }
+  }
+
+  function addSection() {
+    const n = prompt('Name des neuen Abschnitts:');
+    if(n && n.trim() !== '') { const newSec = { id: genId('sec'), name: n.trim(), color: '#4285f4', pages: [{id: genId('p'), name: 'Unbenannte Seite'}] }; sections.push(newSec); queueSave(); selectSection(newSec.id); }
+  }
+
+  function deleteSection(id, name) {
+    if (!confirm(`Abschnitt "${name}" und ALLE zugehörigen Seiten wirklich löschen?`)) return;
+    setStatus('Lösche Abschnitt...'); const sec = sections.find(s => s.id === id); const pageIds = sec ? sec.pages.map(p => p.id) : []; sections = sections.filter(s => s.id !== id);
+    if (currentSectionId === id) { if (sections.length > 0) selectSection(sections[0].id); else { currentSectionId = null; currentPageId = null; renderSections(); renderPages(null); document.querySelectorAll('.note').forEach(n => n.remove()); document.getElementById('pageTitle').value = ''; } } else { renderSections(); }
+    queueSave();
+  }
+
+  function selectPage(pageId) {
+    clearSelection();
+    if (currentPageId) {
+        localPageCache[currentPageId] = Array.from(document.querySelectorAll('.note')).map(n => ({
+            id: n.id, x: parseInt(n.style.left), y: parseInt(n.style.top), 
+            w: n.style.width, h: n.style.height, content: n.querySelector('.content').innerHTML
+        }));
+        queueSave(); 
+    }
+    
+    currentPageId = pageId; 
+    const sec = sections.find(s => s.id === currentSectionId);
+    if(sec) { sec.lastPageId = pageId; queueSave(); }
+    
+    document.querySelectorAll('.note').forEach(n => n.remove()); 
+    const page = sec ? sec.pages.find(p => p.id === pageId) : null;
+    document.getElementById('pageTitle').value = page ? page.name : '';
+    
+    if (!localPageCache[pageId]) localPageCache[pageId] = [];
+    
+    localPageCache[pageId].forEach(n => createNote(n.id, n.x, n.y, n.content, n.w, n.h));
+    updateCanvasBackground(); checkDates(); setStatus('Bereit'); historyStack = []; historyIndex = -1; setTimeout(recordState, 100);
+    renderPages(sec);
+  }
+
+  function addPage() {
+    const sec = sections.find(s => s.id === currentSectionId); if (!sec) return;
+    const newPageId = genId('p'); sec.pages.push({ id: newPageId, name: 'Unbenannte Seite' });
+    localPageCache[newPageId] = []; queueSave(); selectPage(newPageId);
+  }
+
+  function copyPageModal(sourceId, sourceName, isSub) {
+    const currentSecIndex = sections.findIndex(s => s.id === currentSectionId);
+    let secStr = sections.map((s, i) => `${i + 1}: ${s.name}`).join('\n'); let choice = prompt(`In welchen Abschnitt soll "${sourceName}" kopiert werden?\n\n${secStr}\n\nNummer eingeben:`, currentSecIndex + 1);
+    if (!choice) return; let targetIndex = parseInt(choice) - 1;
+    if (targetIndex >= 0 && targetIndex < sections.length) {
+        setStatus('Kopiere Seite...'); let targetSec = sections[targetIndex]; let newPageId = genId('p'); let newName = sourceName; 
+        if (targetIndex === currentSecIndex) {
+            const sourceIndex = targetSec.pages.findIndex(p => p.id === sourceId); let insertIndex = sourceIndex + 1;
+            if (!isSub) { while(insertIndex < targetSec.pages.length && targetSec.pages[insertIndex].isSub) insertIndex++; }
+            targetSec.pages.splice(insertIndex, 0, { id: newPageId, name: newName, isSub: isSub });
+        } else { targetSec.pages.push({ id: newPageId, name: newName, isSub: false }); }
+        
+        let sourceNotes = localPageCache[sourceId] || [];
+        localPageCache[newPageId] = sourceNotes.map(n => ({ id: 'n_' + new Date().getTime() + '_' + Math.floor(Math.random() * 10000), x: n.x, y: n.y, w: n.w, h: n.h, content: n.content }));
+        
+        renderPages(currentSecIndex === targetIndex ? targetSec : sections[currentSecIndex]);
+        queueSave(); setStatus('Bereit');
+        if (targetIndex !== currentSecIndex) { if (confirm(`Seite wurde nach "${targetSec.name}" kopiert. Möchtest du dorthin wechseln?`)) { selectSection(targetSec.id); setTimeout(() => selectPage(newPageId), 200); } } else { selectPage(newPageId); }
+    } else { alert('Ungültige Nummer.'); }
+  }
+
+  function deletePage(id, name) {
+    if (!confirm(`Seite "${name}" wirklich löschen?`)) return;
+    setStatus('Lösche Seite...'); const sec = sections.find(s => s.id === currentSectionId); sec.pages = sec.pages.filter(p => p.id !== id); delete localPageCache[id];
+    if (currentPageId === id) { if (sec.pages.length > 0) selectPage(sec.pages[0].id); else { currentPageId = null; renderPages(sec); document.querySelectorAll('.note').forEach(n => n.remove()); document.getElementById('pageTitle').value = ''; } } else { renderPages(sec); }
+    queueSave();
+  }
+
+  document.getElementById('pageTitle').oninput = function() {
+    const newName = this.value; const sec = sections.find(s => s.id === currentSectionId);
+    if (sec) { const page = sec.pages.find(p => p.id === currentPageId); if(page) { page.name = newName || "Unbenannt"; renderPages(sec); } }
+    queueSave(); recordState(); 
+  };
+
+  document.getElementById('canvas').onmousedown = e => {
+    if(e.target.id === 'canvas' && currentPageId) {
+      const r = document.getElementById('canvas').getBoundingClientRect(); selStartX = (e.clientX - r.left) / currentZoom; selStartY = (e.clientY - r.top) / currentZoom;
+      if(selStartY < 120 && selStartX < 650) return;
+      clearSelection(); isSelecting = true;
+      if (!selectionBox) { selectionBox = document.createElement('div'); selectionBox.className = 'selection-box'; document.getElementById('canvas').appendChild(selectionBox); }
+      selectionBox.style.left = selStartX + 'px'; selectionBox.style.top = selStartY + 'px'; selectionBox.style.width = '0px'; selectionBox.style.height = '0px'; selectionBox.style.display = 'block';
+    }
+  };
+
+  function updateMaxWidth(el) {
+    const viewEl = document.getElementById('view'); const x = parseInt(el.style.left); const spaceRight = (viewEl.clientWidth / currentZoom) - (x - (viewEl.scrollLeft / currentZoom)) - 30; 
+    el.style.maxWidth = (spaceRight > 150 ? spaceRight : 150) + 'px';
+  }
+
+  function createNote(id, x, y, html, w, h) {
+    const div = document.createElement('div'); div.className = 'note'; div.id = id;
+    div.style.left = x + 'px'; div.style.top = y + 'px';
+    let isImage = html.includes('standalone-img'); let isShape = html.includes('shape-element');
+
+    if (isImage) { div.classList.add('is-image'); if(w) div.style.width = isNaN(w) ? w : w + 'px'; if(h) div.style.height = isNaN(h) ? h : h + 'px'; } 
+    else if (isShape) { div.classList.add('is-shape'); if(w) div.style.width = isNaN(w) ? w : w + 'px'; if(h) div.style.height = isNaN(h) ? h : h + 'px'; } 
+    else { div.style.width = (w && w !== 'max-content' && w !== 'fit-content' && w !== 'auto') ? (isNaN(w) ? w : w + 'px') : 'max-content'; div.style.height = 'auto'; updateMaxWidth(div); }
+    
+    div.addEventListener('mousedown', () => { highestZ++; div.style.zIndex = highestZ; });
+
+    let handlesHTML = `<div class="resize-handle nw-handle" data-dir="nw"></div><div class="resize-handle n-handle" data-dir="n"></div><div class="resize-handle ne-handle" data-dir="ne"></div><div class="resize-handle e-handle" data-dir="e"></div><div class="resize-handle se-handle" data-dir="se"></div><div class="resize-handle s-handle" data-dir="s"></div><div class="resize-handle sw-handle" data-dir="sw"></div><div class="resize-handle w-handle" data-dir="w"></div>`;
+    if (isImage || isShape) { div.innerHTML = `${handlesHTML}<div class="content">${html}</div><button class="note-del">X</button>`; } 
+    else { div.innerHTML = `${handlesHTML}<div class="handle"></div><div class="content">${html}</div><button class="note-del">X</button>`; }
+
+    const cont = div.querySelector('.content');
+    if (isImage || isShape) { cont.contentEditable = "false"; } else { cont.contentEditable = "true"; }
+    
+    const resizeObserver = new ResizeObserver(() => { if (!isRestoring && currentPageId) queueNoteSave(id, div); }); resizeObserver.observe(div);
+
+    div.querySelectorAll('.resize-handle').forEach(handle => {
+        handle.onmousedown = e => {
+            e.stopPropagation(); isResizingNote = true; currentResizingNote = div; resizingDir = handle.dataset.dir;
+            if(resizingDir === 'nw' || resizingDir === 'se') document.body.classList.add('is-resizing-nwse');
+            if(resizingDir === 'n' || resizingDir === 's') document.body.classList.add('is-resizing-ns');
+            if(resizingDir === 'ne' || resizingDir === 'sw') document.body.classList.add('is-resizing-nesw');
+            if(resizingDir === 'e' || resizingDir === 'w') document.body.classList.add('is-resizing-ew');
+            const r = document.getElementById('canvas').getBoundingClientRect(); selStartX = (e.clientX - r.left) / currentZoom; selStartY = (e.clientY - r.top) / currentZoom;
+            startNoteX = parseFloat(div.style.left) || 0; startNoteY = parseFloat(div.style.top) || 0; startNoteW = div.offsetWidth; startNoteH = div.offsetHeight;
+            div.style.width = startNoteW + 'px'; div.style.height = startNoteH + 'px';
+        };
+    });
+
+    cont.onmousedown = (e) => { 
+        if (hoveredCell && hoveredCell.style.cursor === 'col-resize') { e.stopPropagation(); isResizingCol = true; resizingCell = hoveredCell; startMouseXForCol = e.clientX; startColWidth = hoveredCell.offsetWidth; document.body.style.userSelect = 'none'; let table = hoveredCell.closest('table'); if (table) { if (!table.dataset.fixedSet) { table.style.width = table.offsetWidth + 'px'; table.style.maxWidth = 'none'; table.dataset.fixedSet = "true"; } } return; }
+        e.stopPropagation(); 
+        if (cont.contentEditable === "false" || isImage || isShape) {
+            if (!div.classList.contains('selected')) { clearSelection(); div.classList.add('selected'); selectedNotes.push(div); let shape = div.querySelector('.shape-element'); if(shape && shape.style.transform.includes('rotate')) { let deg = shape.style.transform.replace(/[^0-9\-.,]/g, ''); if(deg) document.getElementById('shapeRotate').value = deg; } else { document.getElementById('shapeRotate').value = 0; } }
+            const rCvs = document.getElementById('canvas').getBoundingClientRect(); const cvsMouseX = (e.clientX - rCvs.left) / currentZoom; const cvsMouseY = (e.clientY - rCvs.top) / currentZoom; 
+            isDragging = true; document.body.classList.add('is-dragging'); 
+            draggedItems = selectedNotes.map(note => { return { el: note, offX: cvsMouseX - parseInt(note.style.left), offY: cvsMouseY - parseInt(note.style.top) }; });
+        } else { clearSelection(); }
+    };
+    
+    cont.onfocus = () => { lastFocusedContent = cont; };
+    cont.oninput = () => { if (cont.contentEditable === "true") div.style.height = 'auto'; queueNoteSave(id, div); };
+    div.onmouseup = () => { if (formatPainterActive && lastFocusedContent) applyCopiedFormat(); if (!isDragging && !isResizingNote) { queueNoteSave(id, div); recordState(); } };
+    
+    const deleteAction = () => {
+       div.remove(); recordState(); selectedNotes = selectedNotes.filter(n => n.id !== id);
+       if(localPageCache[currentPageId]) { localPageCache[currentPageId] = localPageCache[currentPageId].filter(n => n.id !== id); } queueSave();
+    };
+
+    cont.onblur = () => { 
+      if(cont.innerText.trim()==="" && !cont.querySelector('img') && !cont.querySelector('table') && !cont.querySelector('input[type="checkbox"]') && !cont.querySelector('.shape-element') && !cont.querySelector('.note-date')) { deleteAction(); } else { queueNoteSave(id, div, true); recordState(); } 
+    };
+
+    div.querySelector('.note-del').onclick = deleteAction;
+    
+    let handle = div.querySelector('.handle');
+    if (handle) {
+        handle.onmousedown = e => { 
+            e.stopPropagation(); const rCvs = document.getElementById('canvas').getBoundingClientRect(); const cvsMouseX = (e.clientX - rCvs.left) / currentZoom; const cvsMouseY = (e.clientY - rCvs.top) / currentZoom; 
+            if (!div.classList.contains('selected')) { clearSelection(); div.classList.add('selected'); selectedNotes.push(div); }
+            isDragging = true; document.body.classList.add('is-dragging'); 
+            draggedItems = selectedNotes.map(note => { return { el: note, offX: cvsMouseX - parseInt(note.style.left), offY: cvsMouseY - parseInt(note.style.top) }; });
+        };
+    }
+    
+    document.getElementById('canvas').appendChild(div); return div;
+  }
+
+  function queueNoteSave(id, el) {
+    if(isRestoring || !currentPageId) return; 
+    if (!document.getElementById(id)) return;
+
+    const cont = el.querySelector('.content');
+    if (cont.innerText.trim() === "" && !cont.querySelector('img') && !cont.querySelector('table') && !cont.querySelector('input[type="checkbox"]') && !cont.querySelector('.shape-element') && !cont.querySelector('.note-date')) return;
+
+    let currentW = el.style.width || el.offsetWidth + 'px'; let currentH = el.style.height || el.offsetHeight + 'px';
+    let noteObj = { id: id, x: parseInt(el.style.left), y: parseInt(el.style.top), w: currentW, h: currentH, content: cont.innerHTML };
+    
+    if(!localPageCache[currentPageId]) localPageCache[currentPageId] = [];
+    let cacheIdx = localPageCache[currentPageId].findIndex(n => n.id === id);
+    if(cacheIdx >= 0) localPageCache[currentPageId][cacheIdx] = noteObj; else localPageCache[currentPageId].push(noteObj);
+    queueSave();
+  }
+
+  document.addEventListener('mousemove', e => { 
+    if (isResizingSidebar) { let diff = e.clientX - startMouseXForSidebar; let newWidth = Math.max(60, Math.min(800, startSidebarWidth + diff)); let sb = document.getElementById('sidebar'); sb.style.flexBasis = newWidth + 'px'; sb.style.minWidth = newWidth + 'px'; sb.style.maxWidth = newWidth + 'px'; return; }
+    const r = document.getElementById('canvas').getBoundingClientRect(); const currX = (e.clientX - r.left) / currentZoom; const currY = (e.clientY - r.top) / currentZoom; lastMouseX = currX; lastMouseY = currY; 
+
+    if (isResizingNote && currentResizingNote) {
+        let dx = currX - selStartX; let dy = currY - selStartY; let newW = startNoteW; let newH = startNoteH; let newX = startNoteX; let newY = startNoteY;
+        if (resizingDir.includes('e')) newW = startNoteW + dx; if (resizingDir.includes('w')) { newW = startNoteW - dx; newX = startNoteX + dx; }
+        if (resizingDir.includes('s')) newH = startNoteH + dy; if (resizingDir.includes('n')) { newH = startNoteH - dy; newY = startNoteY + dy; }
+        let minW = 20; let minH = 20; if (currentResizingNote.classList.contains('is-image')) { minW = 20; minH = 20; } else if (currentResizingNote.classList.contains('is-shape')) { minW = 2; minH = 2; }
+        if (newW < minW) { if (resizingDir.includes('w')) newX = startNoteX + startNoteW - minW; newW = minW; }
+        if (newH < minH) { if (resizingDir.includes('n')) newY = startNoteY + startNoteH - minH; newH = minH; }
+        currentResizingNote.style.width = newW + 'px'; currentResizingNote.style.height = newH + 'px'; currentResizingNote.style.left = newX + 'px'; currentResizingNote.style.top = newY + 'px'; updateMaxWidth(currentResizingNote); return; 
+    }
+
+    if (isResizingCol && resizingCell) { let diff = (e.clientX - startMouseXForCol) / currentZoom; let newWidth = Math.max(20, startColWidth + diff); let tr = resizingCell.parentNode; let colIndex = Array.from(tr.children).indexOf(resizingCell); let table = tr.closest('table'); if (table) { Array.from(table.rows).forEach(row => { if (row.children[colIndex]) { row.children[colIndex].style.width = newWidth + 'px'; row.children[colIndex].style.minWidth = newWidth + 'px'; } }); } return; }
+
+    if (!isDragging && !isSelecting && !isResizingCol && !isResizingSidebar && !isResizingNote) {
+        let target = e.target; let td = target && target.closest ? target.closest('td, th') : null;
+        if (td) { let rect = td.getBoundingClientRect(); if (rect.right - e.clientX >= 0 && rect.right - e.clientX <= 12) { td.style.cursor = 'col-resize'; hoveredCell = td; } else { td.style.cursor = 'text'; if (hoveredCell === td) hoveredCell = null; } } else if (hoveredCell) { hoveredCell.style.cursor = 'text'; hoveredCell = null; }
+    }
+    
+    if (isSelecting && selectionBox) { const left = Math.min(selStartX, currX); const top = Math.min(selStartY, currY); const width = Math.abs(currX - selStartX); const height = Math.abs(currY - selStartY); selectionBox.style.left = left + 'px'; selectionBox.style.top = top + 'px'; selectionBox.style.width = width + 'px'; selectionBox.style.height = height + 'px'; } 
+    else if (isDragging && draggedItems.length > 0) { draggedItems.forEach(item => { item.el.style.left = (currX - item.offX) + 'px'; item.el.style.top = (currY - item.offY) + 'px'; }); } 
+  });
+  
+  document.onmouseup = (e) => { 
+    document.body.classList.remove('is-dragging', 'is-resizing-nwse', 'is-resizing-ns', 'is-resizing-nesw', 'is-resizing-ew');
+    if (isResizingNote) { isResizingNote = false; if (currentResizingNote) { queueNoteSave(currentResizingNote.id, currentResizingNote); recordState(); } currentResizingNote = null; return; }
+    if (isResizingSidebar) { isResizingSidebar = false; document.body.style.userSelect = ''; document.getElementById('sidebarResizer').classList.remove('active'); appSettings.sidebarWidth = document.getElementById('sidebar').offsetWidth; queueSave(); return; }
+    if (isResizingCol) { isResizingCol = false; document.body.style.userSelect = ''; if (resizingCell) { let noteDiv = resizingCell.closest('.note'); if (noteDiv) { updateMaxWidth(noteDiv); queueNoteSave(noteDiv.id, noteDiv); recordState(); } } resizingCell = null; hoveredCell = null; return; }
+    if (isSelecting) {
+        isSelecting = false; if (selectionBox) selectionBox.style.display = 'none';
+        const r = document.getElementById('canvas').getBoundingClientRect(); const currX = (e.clientX - r.left) / currentZoom; const currY = (e.clientY - r.top) / currentZoom; const width = Math.abs(currX - selStartX); const height = Math.abs(currY - selStartY);
+        if (width < 5 && height < 5) { const initialHtml = `<div style="font-family: ${appSettings.defaultFont}; font-size: ${appSettings.defaultFontSize}px;"><br></div>`; const n = createNote(genId('n'), selStartX, selStartY, initialHtml, 'max-content', 'max-content'); setTimeout(() => n.querySelector('.content').focus(), 10); } 
+        else { const left = Math.min(selStartX, currX); const right = Math.max(selStartX, currX); const top = Math.min(selStartY, currY); const bottom = Math.max(selStartY, currY); document.querySelectorAll('.note').forEach(note => { const nx = parseFloat(note.style.left); const ny = parseFloat(note.style.top); const nw = note.offsetWidth; const nh = note.offsetHeight; if (nx < right && nx + nw > left && ny < bottom && ny + nh > top) { note.classList.add('selected'); selectedNotes.push(note); } }); }
+    } 
+    else if (isDragging) { isDragging = false; if (draggedItems.length > 0) { draggedItems.forEach(item => { updateMaxWidth(item.el); queueNoteSave(item.el.id, item.el); }); recordState(); } draggedItems = []; } 
+  };
+
+  // 🚀 LOKALE BILDERVERARBEITUNG (BASE64)
+  const viewEl = document.getElementById('view');
+  viewEl.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); });
+  viewEl.addEventListener('dragenter', e => { e.preventDefault(); e.stopPropagation(); });
+  viewEl.addEventListener('dragleave', e => { e.preventDefault(); e.stopPropagation(); });
+  viewEl.addEventListener('drop', e => {
+      e.preventDefault(); e.stopPropagation();
+      if (!currentPageId || !fileHandle) return; // Nur wenn eine DB geöffnet ist
+
+      const files = e.dataTransfer.files;
+      if (files && files.length > 0) {
+          const file = files[0];
+          if (file.type.startsWith('image/')) {
+              const r = document.getElementById('canvas').getBoundingClientRect();
+              const cvsMouseX = (e.clientX - r.left) / currentZoom;
+              const cvsMouseY = (e.clientY - r.top) / currentZoom;
+              
+              setStatus("Konvertiere Bild...");
+              const reader = new FileReader();
+              reader.onload = event => {
+                  const base64String = event.target.result;
+                  const html = `<img class="standalone-img" src="${base64String}" draggable="false" style="width:100%; height:100%; object-fit:fill; display:block; pointer-events:none; user-select:none;">`;
+                  let px = Math.max(0, cvsMouseX - 150); let py = Math.max(0, cvsMouseY - 150);
+                  let note = createNote(genId('n'), px, py, html, 300, 200);
+                  queueNoteSave(note.id, note); setTimeout(recordState, 200);
+              };
+              reader.readAsDataURL(file);
+          }
+      }
+  });
+
+  document.addEventListener('paste', e => {
+    if (!currentPageId || !fileHandle) return;
+    const clipboardData = e.clipboardData || window.clipboardData; const items = clipboardData.items; const plainText = clipboardData.getData('text/plain') || ''; const hasText = plainText.trim() !== ''; const htmlData = clipboardData.getData('text/html') || '';
+    let isImageUpload = false; let imageFile = null;
+    if (!hasText) { for (const item of items) { if (item.type.indexOf('image') !== -1) { isImageUpload = true; imageFile = item.getAsFile(); break; } } }
+    
+    if (isImageUpload && imageFile) {
+      e.preventDefault(); 
+      setStatus("Konvertiere Bild...");
+      const reader = new FileReader();
+      reader.onload = event => {
+          const base64String = event.target.result;
+          const html = `<img class="standalone-img" src="${base64String}" draggable="false" style="width:100%; height:100%; object-fit:fill; display:block; pointer-events:none; user-select:none;">`;
+          let note = createNote(genId('n'), Math.max(0, lastMouseX - 150), Math.max(0, lastMouseY - 150), html, 300, 200);
+          queueNoteSave(note.id, note); setTimeout(recordState, 200);
+      };
+      reader.readAsDataURL(imageFile);
+      return; 
+    }
+
+    const activeEl = document.activeElement; const isFocusedInNote = activeEl && activeEl.classList.contains('content') && activeEl.isContentEditable;
+    if (!isFocusedInNote && (hasText || htmlData)) {
+      e.preventDefault(); let px = Math.max(0, lastMouseX - 20), py = Math.max(0, lastMouseY - 20); let note = createNote(genId('n'), px, py, "", 'max-content', 'max-content'); let cont = note.querySelector('.content'); cont.focus();
+      if (htmlData) { document.execCommand('insertHTML', false, htmlData); } else { let styledText = `<div style="font-family: ${appSettings.defaultFont}; font-size: ${appSettings.defaultFontSize}px;">${plainText.replace(/\n/g, '<br>')}</div>`; document.execCommand('insertHTML', false, styledText); }
+      queueNoteSave(note.id, note); setTimeout(recordState, 200);
+    }
+  });
+
+  function recordState() {
+    if (isRestoring) return;
+    const state = JSON.stringify({ title: document.getElementById('pageTitle').value, notes: Array.from(document.querySelectorAll('.note')).map(n => ({ id: n.id, x: parseInt(n.style.left), y: parseInt(n.style.top), w: n.style.width, h: n.style.height, html: n.querySelector('.content').innerHTML })) });
+    if (historyIndex >= 0 && historyStack[historyIndex] === state) return;
+    if (historyIndex < historyStack.length - 1) historyStack = historyStack.slice(0, historyIndex + 1);
+    historyStack.push(state); if (historyStack.length > 30) historyStack.shift(); else historyIndex++;
+  }
+
+  function applyState(stateStr) {
+    isRestoring = true; setStatus('Wiederherstellen...'); clearSelection(); const state = JSON.parse(stateStr); document.getElementById('pageTitle').value = state.title;
+    const sec = sections.find(s => s.id === currentSectionId); if(sec) { const page = sec.pages.find(p => p.id === currentPageId); if(page) { page.name = state.title; renderPages(sec); } }
+    document.querySelectorAll('.note').forEach(n => n.remove()); let undoPayload = [];
+    state.notes.forEach(pn => { createNote(pn.id, pn.x, pn.y, pn.html, pn.w, pn.h); undoPayload.push({id: pn.id, x: pn.x, y: pn.y, content: pn.html, w: pn.w, h: pn.h}); });
+    localPageCache[currentPageId] = undoPayload; queueSave(); checkDates(); setTimeout(() => { isRestoring = false; setStatus('Bereit'); }, 500);
+  }
+</script>
+</body>
+</html>
