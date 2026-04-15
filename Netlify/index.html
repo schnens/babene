@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <title>OneNote Pro - 100% Lokal</title>
+  <title>OneNote Pro</title>
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; height: 100vh; width: 100vw; background: #f4f5f7; font-family: 'Segoe UI', Tahoma, sans-serif; overflow: hidden; }
@@ -40,12 +40,14 @@
     
     #topRightArea { display: flex; align-items: center; gap: 8px; padding-bottom: 5px; }
     
-    #saveStatus { font-size: 11px; color: #1a73e8; font-weight: bold; background: #e8f0fe; padding: 4px 8px; border-radius: 4px; text-align: center; flex-shrink: 0; display: inline-block; overflow: hidden;}
-    .btn-exit { background: #f1f3f4; color: #444; border: 1px solid #ccc; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer; margin-right: 5px;}
+    /* 🚀 FESTE BREITE FÜR DEN STATUS (Verhindert das Hüpfen) */
+    #saveStatus { font-size: 11px; color: #1a73e8; font-weight: bold; background: #e8f0fe; padding: 4px 8px; border-radius: 4px; text-align: center; flex-shrink: 0; display: inline-block; overflow: hidden; width: 100px;}
+    
+    .btn-exit { background: #f1f3f4; color: #444; border: 1px solid #ccc; padding: 5px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer; margin-right: 5px;}
     .btn-exit:hover { background: #e8eaed; }
 
-    /* 🚀 DEZENTER Manueller Speicher-Button */
-    .manual-save-btn { background: #ffffff; color: #555; border: 1px solid #ccc; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    /* 🚀 FESTE BREITE FÜR DEN SPEICHERN BUTTON */
+    .manual-save-btn { background: #ffffff; color: #555; border: 1px solid #ccc; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.05); width: 120px; text-align: center;}
     .manual-save-btn:hover { background: #f8f9fa; border-color: #a0c3ff; color: #1a73e8; }
     .manual-save-btn:active { transform: scale(0.95); }
     
@@ -237,7 +239,6 @@
           <button class="zoom-indicator" onclick="resetZoom()" title="Auf 100% zurücksetzen"><span id="zoomLabel">100%</span></button>
           
           <div id="saveStatus">🟢 Bereit</div>
-          
           <button id="manualSaveBtn" class="manual-save-btn" onclick="manualSaveClick()" title="Datei jetzt manuell überschreiben">💾 Speichern</button>
           
           <button class="tool-btn" onclick="openManual()" title="Benutzerhandbuch" style="font-size: 16px; width:28px; height:28px;">📖</button>
@@ -721,7 +722,7 @@
       document.execCommand('backColor', false, (copiedStyles.backgroundColor && copiedStyles.backgroundColor !== 'rgba(0, 0, 0, 0)' && copiedStyles.backgroundColor !== 'transparent') ? copiedStyles.backgroundColor : 'transparent');
       if(copiedStyles.fontSize) setCustomFontSize(parseInt(copiedStyles.fontSize));
       formatPainterActive = false; document.getElementById('formatPainterBtn').style.backgroundColor = 'transparent';
-      queueSave();
+      recordState(); queueSave();
   }
 
   function undo() { if (document.activeElement && document.activeElement.classList.contains('content')) { document.execCommand('undo'); queueNoteSave(document.activeElement.closest('.note').id, document.activeElement.closest('.note')); } else { if (historyIndex > 0) { historyIndex--; applyState(historyStack[historyIndex]); } } }
@@ -847,16 +848,16 @@
       let color = document.getElementById('shapeColor').value;
       if (lastFocusedContent) { let sel = window.getSelection(); if (sel.rangeCount > 0) { let node = sel.anchorNode; if (node.nodeType === 3) node = node.parentNode; let table = node ? node.closest('table') : null; if (table) { table.style.borderColor = color; Array.from(table.querySelectorAll('td, th')).forEach(cell => { cell.style.borderColor = color; }); queueNoteSave(table.closest('.note').id, table.closest('.note')); recordState(); queueSave(); } } }
       if(selectedNotes.length === 0 && lastFocusedContent) { let note = lastFocusedContent.closest('.note'); if(note && !selectedNotes.includes(note)) selectedNotes.push(note); }
-      selectedNotes.forEach(note => { let shape = note.querySelector('.shape-element'); if(shape) { let svg = shape.tagName.toLowerCase() === 'svg' ? shape : shape.querySelector('svg'); if (svg) { let line = svg.querySelector('line'); if(line) line.setAttribute('stroke', color); let path = svg.querySelector('path'); if(path) path.setAttribute('fill', color); } else { shape.style.borderColor = color; } queueNoteSave(note.id, note); } }); queueSave();
+      selectedNotes.forEach(note => { let shape = note.querySelector('.shape-element'); if(shape) { let svg = shape.tagName.toLowerCase() === 'svg' ? shape : shape.querySelector('svg'); if (svg) { let line = svg.querySelector('line'); if(line) line.setAttribute('stroke', color); let path = svg.querySelector('path'); if(path) path.setAttribute('fill', color); } else { shape.style.borderColor = color; } queueNoteSave(note.id, note); } }); recordState(); queueSave();
   }
 
   function applyShapeThickness(thick) {
       if (lastFocusedContent) { let sel = window.getSelection(); if (sel.rangeCount > 0) { let node = sel.anchorNode; if (node.nodeType === 3) node = node.parentNode; let table = node ? node.closest('table') : null; if (table) { table.style.borderWidth = thick + 'px'; Array.from(table.querySelectorAll('td, th')).forEach(cell => { cell.style.borderWidth = thick + 'px'; }); queueNoteSave(table.closest('.note').id, table.closest('.note')); recordState(); queueSave(); } } }
-      selectedNotes.forEach(note => { let shape = note.querySelector('.shape-element'); if(shape) { let svg = shape.tagName.toLowerCase() === 'svg' ? shape : shape.querySelector('svg'); if (svg) { let line = svg.querySelector('line'); if(line) line.setAttribute('stroke-width', thick); } else { shape.style.borderWidth = thick + 'px'; } queueNoteSave(note.id, note); } }); queueSave();
+      selectedNotes.forEach(note => { let shape = note.querySelector('.shape-element'); if(shape) { let svg = shape.tagName.toLowerCase() === 'svg' ? shape : shape.querySelector('svg'); if (svg) { let line = svg.querySelector('line'); if(line) line.setAttribute('stroke-width', thick); } else { shape.style.borderWidth = thick + 'px'; } queueNoteSave(note.id, note); } }); recordState(); queueSave();
   }
 
   function applyShapeRotation(deg) {
-      selectedNotes.forEach(note => { let shape = note.querySelector('.shape-element'); if(shape) { shape.style.transform = `rotate(${deg}deg)`; queueNoteSave(note.id, note); } }); queueSave();
+      selectedNotes.forEach(note => { let shape = note.querySelector('.shape-element'); if(shape) { shape.style.transform = `rotate(${deg}deg)`; queueNoteSave(note.id, note); } }); recordState(); queueSave();
   }
 
   function renderSections() {
@@ -876,7 +877,6 @@
     });
   }
 
-  // 🚀 HIER WURDEN DIE SEITEN-FUNKTIONEN VOLLSTÄNDIG REPARIERT!
   function renderPages(sec) {
     const list = document.getElementById('pagesList'); 
     list.innerHTML = ''; 
@@ -889,7 +889,6 @@
 
       if (!p.isSub) currentParentIndex = index;
       
-      // Wenn das übergeordnete Element zugeklappt ist, diese Unterseite ausblenden
       if (p.isSub && currentParentIndex !== -1 && sec.pages[currentParentIndex].isCollapsed) return;
 
       const div = document.createElement('div'); 
@@ -899,43 +898,21 @@
       div.innerHTML = generatePageHTML(p, hasChildren);
 
       div.ondragstart = (e) => { 
-        draggedPageIndex = index; 
-        draggedPageCount = 1; 
-        if (!sec.pages[index].isSub) { 
-           let i = index + 1; 
-           while (i < sec.pages.length && sec.pages[i].isSub) { draggedPageCount++; i++; } 
-        } 
-        e.dataTransfer.effectAllowed = "move"; 
-        setTimeout(() => div.style.opacity = '0.5', 0); 
+        draggedPageIndex = index; draggedPageCount = 1; 
+        if (!sec.pages[index].isSub) { let i = index + 1; while (i < sec.pages.length && sec.pages[i].isSub) { draggedPageCount++; i++; } } 
+        e.dataTransfer.effectAllowed = "move"; setTimeout(() => div.style.opacity = '0.5', 0); 
       };
-
-      div.ondragend = () => { 
-        div.style.opacity = '1'; 
-        document.querySelectorAll('.page-item').forEach(el => el.style.borderTop = 'none'); 
-      };
-
-      div.ondragover = (e) => { 
-        e.preventDefault(); 
-        document.querySelectorAll('.page-item').forEach(el => el.style.borderTop = 'none'); 
-        div.style.borderTop = "2px solid #1a73e8"; 
-      };
-
+      div.ondragend = () => { div.style.opacity = '1'; document.querySelectorAll('.page-item').forEach(el => el.style.borderTop = 'none'); };
+      div.ondragover = (e) => { e.preventDefault(); document.querySelectorAll('.page-item').forEach(el => el.style.borderTop = 'none'); div.style.borderTop = "2px solid #1a73e8"; };
       div.ondragleave = () => { div.style.borderTop = 'none'; };
-
       div.ondrop = (e) => { 
         e.preventDefault(); div.style.borderTop = 'none'; 
         if (draggedPageIndex === null || draggedPageIndex === index) return; 
-
         let dropIndex = index; 
-        if (!sec.pages[index].isSub) { 
-           let i = index + 1; 
-           while (i < sec.pages.length && sec.pages[i].isSub) { dropIndex = i; i++; } 
-        } 
+        if (!sec.pages[index].isSub) { let i = index + 1; while (i < sec.pages.length && sec.pages[i].isSub) { dropIndex = i; i++; } } 
         dropIndex++; 
-
         if (dropIndex >= draggedPageIndex && dropIndex < draggedPageIndex + draggedPageCount) return; 
         if (draggedPageIndex < dropIndex) dropIndex -= draggedPageCount; 
-
         const draggedItems = sec.pages.splice(draggedPageIndex, draggedPageCount); 
         sec.pages.splice(dropIndex, 0, ...draggedItems); 
         queueSave(); renderPages(sec); 
@@ -944,30 +921,19 @@
       div.onclick = () => selectPage(p.id);
 
       const toggleBtn = div.querySelector('.page-toggle-btn');
-      if (toggleBtn) {
-          toggleBtn.onclick = (e) => {
-              e.stopPropagation();
-              sec.pages[index].isCollapsed = !sec.pages[index].isCollapsed;
-              queueSave();
-              renderPages(sec);
-          }
-      }
+      if (toggleBtn) { toggleBtn.onclick = (e) => { e.stopPropagation(); sec.pages[index].isCollapsed = !sec.pages[index].isCollapsed; queueSave(); renderPages(sec); } }
 
       const lBtn = div.querySelector('.page-level-btn');
       if (lBtn) lBtn.onclick = (e) => { e.stopPropagation(); sec.pages[index].isSub = !sec.pages[index].isSub; queueSave(); renderPages(sec); }
 
       const upBtn = div.querySelector('.page-up-btn');
       if (upBtn) upBtn.onclick = (e) => { e.stopPropagation(); movePageOrder(p.id, 'up'); };
-
       const downBtn = div.querySelector('.page-down-btn');
       if (downBtn) downBtn.onclick = (e) => { e.stopPropagation(); movePageOrder(p.id, 'down'); };
-
       const copyBtn = div.querySelector('.page-copy-btn');
       if (copyBtn) copyBtn.onclick = (e) => { e.stopPropagation(); copyPageModal(p.id, p.name, !!p.isSub); };
-
       const moveBtn = div.querySelector('.page-move-btn');
       if (moveBtn) moveBtn.onclick = (e) => { e.stopPropagation(); movePageModal(p.id, p.name); };
-
       const delBtn = div.querySelector('.page-del-btn');
       if (delBtn) delBtn.onclick = (e) => { e.stopPropagation(); deletePage(p.id, p.name); };
 
@@ -990,12 +956,12 @@
   }
 
   function selectPage(pageId) {
-    clearSelection(); if (currentPageId) { localPageCache[currentPageId] = Array.from(document.querySelectorAll('.note')).map(n => ({ id: n.id, x: parseInt(n.style.left), y: parseInt(n.style.top), w: n.style.width, h: n.style.height, content: n.querySelector('.content').innerHTML })); }
-    currentPageId = pageId; const sec = sections.find(s => s.id === currentSectionId); if(sec) sec.lastPageId = pageId;
+    clearSelection(); if (currentPageId) { localPageCache[currentPageId] = Array.from(document.querySelectorAll('.note')).map(n => ({ id: n.id, x: parseInt(n.style.left), y: parseInt(n.style.top), w: n.style.width, h: n.style.height, content: n.querySelector('.content').innerHTML })); queueSave(); }
+    currentPageId = pageId; const sec = sections.find(s => s.id === currentSectionId); if(sec) { sec.lastPageId = pageId; queueSave(); }
     document.querySelectorAll('.note').forEach(n => n.remove()); const page = sec ? sec.pages.find(p => p.id === pageId) : null;
     document.getElementById('pageTitle').value = page ? page.name : '';
     if (localPageCache[pageId]) localPageCache[pageId].forEach(n => createNote(n.id, n.x, n.y, n.content, n.w, n.h));
-    updateCanvasBackground(); checkDates(); renderPages(sec);
+    updateCanvasBackground(); checkDates(); historyStack = []; historyIndex = -1; setTimeout(recordState, 100); renderPages(sec);
   }
 
   function addPage() { const sec = sections.find(s => s.id === currentSectionId); if (!sec) return; const newPageId = genId('p'); sec.pages.push({ id: newPageId, name: 'Unbenannte Seite' }); localPageCache[newPageId] = []; queueSave(); selectPage(newPageId); }
@@ -1020,14 +986,13 @@
     else if (isShape) { div.classList.add('is-shape'); div.style.width = w || '150px'; div.style.height = h || '100px'; } 
     else { div.style.width = w || 'max-content'; div.style.height = 'auto'; updateMaxWidth(div); }
     
-    // 🚀 HIER WURDEN DIE 8-PUNKTE-HANDLES REPARIERT!
     let handlesHTML = `<div class="resize-handle nw-handle" data-dir="nw"></div><div class="resize-handle n-handle" data-dir="n"></div><div class="resize-handle ne-handle" data-dir="ne"></div><div class="resize-handle e-handle" data-dir="e"></div><div class="resize-handle se-handle" data-dir="se"></div><div class="resize-handle s-handle" data-dir="s"></div><div class="resize-handle sw-handle" data-dir="sw"></div><div class="resize-handle w-handle" data-dir="w"></div>`;
     div.innerHTML = (isImage || isShape) ? `${handlesHTML}<div class="content">${html}</div><button class="note-del">×</button>` : `${handlesHTML}<div class="handle"></div><div class="content" contenteditable="true">${html}</div><button class="note-del">×</button>`;
 
     div.querySelectorAll('.resize-handle').forEach(handle => {
         handle.onmousedown = e => {
             e.stopPropagation(); isResizingNote = true; currentResizingNote = div; 
-            resizingDir = handle.dataset.dir; // <-- Dieser Befehl war kaputt und wurde gerichtet
+            resizingDir = handle.dataset.dir; 
             
             if(['nw','se'].includes(resizingDir)) document.body.className = 'is-resizing-nwse';
             else if(['ne','sw'].includes(resizingDir)) document.body.className = 'is-resizing-nesw';
@@ -1047,10 +1012,27 @@
         e.stopPropagation(); if (!div.classList.contains('selected')) { clearSelection(); div.classList.add('selected'); selectedNotes.push(div); }
         if (cont.contentEditable !== "true") { isDragging = true; document.body.classList.add('is-dragging'); const rC = document.getElementById('canvas').getBoundingClientRect(); draggedItems = selectedNotes.map(n => ({ el: n, offX: ((e.clientX - rC.left) / currentZoom) - parseInt(n.style.left), offY: ((e.clientY - rC.top) / currentZoom) - parseInt(n.style.top) })); }
     };
+    
     cont.onfocus = () => { lastFocusedContent = cont; };
     cont.oninput = () => { if (cont.contentEditable === "true") div.style.height = 'auto'; queueNoteSave(id, div); };
     
-    div.querySelector('.note-del').onclick = () => { div.remove(); queueSave(); };
+    div.onmouseup = () => { 
+        if (formatPainterActive && lastFocusedContent) applyCopiedFormat(); 
+        if (!isDragging && !isResizingNote) { queueNoteSave(id, div); recordState(); } 
+    };
+
+    const deleteAction = () => {
+       div.remove(); recordState(); selectedNotes = selectedNotes.filter(n => n.id !== id);
+       if(localPageCache[currentPageId]) { localPageCache[currentPageId] = localPageCache[currentPageId].filter(n => n.id !== id); }
+       queueSave();
+    };
+
+    cont.onblur = () => { 
+      if(cont.innerText.trim()==="" && !cont.querySelector('img') && !cont.querySelector('table') && !cont.querySelector('input[type="checkbox"]') && !cont.querySelector('.shape-element') && !cont.querySelector('.note-date')) { deleteAction(); } 
+      else { queueNoteSave(id, div); recordState(); } 
+    };
+    
+    div.querySelector('.note-del').onclick = deleteAction;
     
     let handle = div.querySelector('.handle');
     if (handle) {
